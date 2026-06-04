@@ -3,11 +3,11 @@
 # Multi-stage build: static Linux binary, minimal runtime image.
 # At runtime mount host ~/.talos (omniconfig + SideroV1 PGP keys) and optionally ~/.kube for sync output.
 
-FROM golang:1.25-alpine AS builder
+FROM golang:1.26-alpine AS builder
 
 WORKDIR /src
 
-# Versions from golang:1.25-alpine (Alpine 3.23); bump when rebasing the builder image.
+# Versions from golang:1.26-alpine (Alpine 3.23); bump when rebasing the builder image.
 RUN apk add --no-cache \
     ca-certificates=20260413-r0 \
     git=2.52.0-r0
