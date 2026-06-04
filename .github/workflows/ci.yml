@@ -107,7 +107,7 @@ jobs:
         run: test -s dist/sbom.cyclonedx.json
 
       - name: Upload SBOM
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sbom-cyclonedx
           path: dist/sbom.cyclonedx.json
@@ -141,7 +141,7 @@ jobs:
           output: dist/sbom-fs.cyclonedx.json
 
       - name: Upload filesystem SBOM
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sbom-fs-cyclonedx
           path: dist/sbom-fs.cyclonedx.json
