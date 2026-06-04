@@ -9,7 +9,7 @@ require (
 	github.com/siderolabs/go-kubeconfig v0.1.1
 	github.com/siderolabs/omni/client v1.4.6
 	github.com/spf13/cobra v1.10.1
-	go.uber.org/zap v1.27.1
+	go.uber.org/zap v1.28.0
 	google.golang.org/grpc v1.77.0
 	k8s.io/client-go v0.35.0-beta.0
 )
