@@ -2,7 +2,6 @@ version: "2"
 
 run:
   timeout: 5m
-  build-vcs: false
 
 linters:
   default: none
@@ -17,11 +16,7 @@ formatters:
   enable:
     - gofmt
     - goimports
-
-formatters-settings:
-  goimports:
-    local-prefixes:
-      - github.com/Jubblin/omni-kubeconfig
-
-issues:
-  exclude-use-default: false
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/Jubblin/omni-kubeconfig
