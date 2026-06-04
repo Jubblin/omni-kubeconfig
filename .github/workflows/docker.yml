@@ -95,7 +95,7 @@ jobs:
 
       - name: Build (CI — no push)
         if: steps.buildver.outputs.pushed != 'true'
-        id: build
+        id: build-ci
         uses: docker/build-push-action@v6
         with:
           context: .
