@@ -8,7 +8,6 @@ import (
 	"github.com/cosi-project/runtime/pkg/safe"
 	pgpclient "github.com/siderolabs/go-api-signature/pkg/pgp/client"
 	"github.com/siderolabs/omni/client/pkg/client"
-	"github.com/siderolabs/omni/client/pkg/omni/resources"
 	"github.com/siderolabs/omni/client/pkg/omni/resources/system"
 	"github.com/siderolabs/omni/client/pkg/omnictl/config"
 )
@@ -42,7 +41,7 @@ func Authenticate(opts ClientOptions, force bool) error {
 
 func reportAuthSuccess(ctx context.Context, c *client.Client, url, identity string) error {
 	sysVersion, err := safe.StateGet[*system.SysVersion](ctx, c.Omni().State(),
-		system.NewSysVersion(resources.EphemeralNamespace, system.SysVersionID).Metadata())
+		system.NewSysVersion(system.SysVersionID).Metadata())
 	if err != nil {
 		return err
 	}

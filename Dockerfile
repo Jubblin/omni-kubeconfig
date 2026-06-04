@@ -21,7 +21,7 @@ ARG VERSION=0.0.0-dev
 ARG COMMIT=unknown
 ARG DATE=unknown
 
-ENV CGO_ENABLED=0
+ENV CGO_ENABLED=0 GOOS=linux
 
 RUN go build -buildvcs=false -trimpath \
     -ldflags "-s -w \
