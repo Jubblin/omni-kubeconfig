@@ -5,10 +5,11 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/Jubblin/omni-kubeconfig/internal/omni"
-	appversion "github.com/Jubblin/omni-kubeconfig/internal/version"
 	omnilibversion "github.com/siderolabs/omni/client/pkg/version"
 	"github.com/spf13/cobra"
+
+	"github.com/Jubblin/omni-kubeconfig/internal/omni"
+	appversion "github.com/Jubblin/omni-kubeconfig/internal/version"
 )
 
 const omniAPIVersion = 2
