@@ -1,19 +1,27 @@
+version: "2"
+
 run:
   timeout: 5m
+  build-vcs: false
 
 linters:
+  default: none
   enable:
     - errcheck
-    - gofmt
-    - goimports
     - govet
     - ineffassign
     - staticcheck
     - unused
 
-linters-settings:
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
+formatters-settings:
   goimports:
-    local-prefixes: github.com/Jubblin/omni-kubeconfig
+    local-prefixes:
+      - github.com/Jubblin/omni-kubeconfig
 
 issues:
   exclude-use-default: false

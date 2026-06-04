@@ -31,8 +31,18 @@ SBOM_FILE := $(SBOM_DIR)/sbom.cyclonedx.json
 HADOLINT ?= docker run --rm -i hadolint/hadolint:v2.12.0-alpine hadolint
 TRIVY_IMAGE ?= aquasec/trivy:latest
 
+# Dev container (matches .devcontainer/devcontainer.json)
+DEVCONTAINER_IMAGE ?= mcr.microsoft.com/devcontainers/go:1.25
+DC_WORKSPACE := /workspaces/omni-kubeconfig
+DC_RUN := docker run --rm \
+	-v "$(CURDIR):$(DC_WORKSPACE)" \
+	-v /var/run/docker.sock:/var/run/docker.sock \
+	-w $(DC_WORKSPACE) \
+	$(DEVCONTAINER_IMAGE)
+
 .PHONY: build install build-all build-platform test lint check version clean \
-	docker-build docker-run hadolint trivy-image sbom-image sbom bom
+	docker-build docker-run hadolint trivy-image sbom-image sbom bom \
+	dc-shell dc-check dc-setup
 
 build:
 	go build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o bin/$(BINARY) $(CMD)
@@ -70,7 +80,18 @@ version:
 	@echo "version=$(VERSION) commit=$(COMMIT) date=$(DATE)"
 	@echo "platforms=$(PLATFORMS)"
 
-# Lint Dockerfile (same rules as CI hadolint job).
+# Run an interactive shell in the dev container.
+dc-setup:
+	$(DC_RUN) bash .devcontainer/post-create.sh
+
+dc-shell:
+	$(DC_RUN) bash
+
+# CI-parity checks inside the dev container (installs tools then runs checks).
+dc-check:
+	$(DC_RUN) bash -lc 'bash .devcontainer/post-create.sh && bash .devcontainer/run-checks.sh'
+
+# Lint Dockerfile (host: docker hadolint; in devcontainer: use make dc-check).
 hadolint:
 	$(HADOLINT) - < Dockerfile
 

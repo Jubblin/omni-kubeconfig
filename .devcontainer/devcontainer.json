@@ -24,7 +24,7 @@
       }
     }
   },
-  "postCreateCommand": "go mod download && go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest",
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
   "remoteUser": "vscode",
   "containerEnv": {
     "OMNICONFIG": "/home/vscode/.talos/omni/config"
