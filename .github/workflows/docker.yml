@@ -22,7 +22,7 @@ jobs:
     name: Hadolint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Lint Dockerfile
         uses: hadolint/hadolint-action@v3.1.0
@@ -39,7 +39,7 @@ jobs:
       digest: ${{ steps.build.outputs.digest }}
       pushed: ${{ steps.buildver.outputs.pushed }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Build version metadata
         id: buildver
@@ -129,7 +129,7 @@ jobs:
     needs: docker
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Scan Dockerfile (misconfigurations)
         uses: aquasecurity/trivy-action@v0.36.0
