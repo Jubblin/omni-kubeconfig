@@ -7,7 +7,6 @@ import (
 	"os/signal"
 
 	"github.com/blang/semver/v4"
-	"github.com/cosi-project/runtime/pkg/resource"
 	"github.com/cosi-project/runtime/pkg/safe"
 	"github.com/cosi-project/runtime/pkg/state"
 	"github.com/siderolabs/go-api-signature/pkg/serviceaccount"
@@ -15,7 +14,6 @@ import (
 
 	"github.com/siderolabs/omni/client/pkg/client"
 	"github.com/siderolabs/omni/client/pkg/client/omni"
-	"github.com/siderolabs/omni/client/pkg/omni/resources"
 	"github.com/siderolabs/omni/client/pkg/omni/resources/system"
 	"github.com/siderolabs/omni/client/pkg/omnictl/config"
 	"github.com/siderolabs/omni/client/pkg/version"
@@ -87,7 +85,7 @@ func withClientContext(ctx context.Context, opts ClientOptions, fn func(ctx cont
 	defer c.Close() //nolint:errcheck
 
 	// Bootstrap: triggers SideroV1 auth/re-auth (browser login) when the key is missing or expired.
-	_, err = c.Omni().State().Get(ctx, resource.NewMetadata(resources.EphemeralNamespace, system.SysVersionType, system.SysVersionID, resource.VersionUndefined))
+	_, err = c.Omni().State().Get(ctx, system.NewSysVersion(system.SysVersionID).Metadata())
 	if err != nil {
 		return fmt.Errorf("authenticate with %s: %w (run: omni-kubeconfig auth)", omniCtx.URL, err)
 	}
@@ -100,7 +98,7 @@ func withClientContext(ctx context.Context, opts ClientOptions, fn func(ctx cont
 }
 
 func checkVersion(ctx context.Context, st state.State) error {
-	sysVersion, err := safe.StateGet[*system.SysVersion](ctx, st, system.NewSysVersion(resources.EphemeralNamespace, system.SysVersionID).Metadata())
+	sysVersion, err := safe.StateGet[*system.SysVersion](ctx, st, system.NewSysVersion(system.SysVersionID).Metadata())
 	if err != nil {
 		return err
 	}
