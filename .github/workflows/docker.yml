@@ -118,7 +118,7 @@ jobs:
 
       - name: Upload image tarball
         if: steps.buildver.outputs.pushed != 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: docker-image
           path: image.tar.gz
@@ -190,7 +190,7 @@ jobs:
         run: cp dist/sbom-image.cyclonedx.json sbom-image.cyclonedx.json
 
       - name: Upload container SBOM
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sbom-image-cyclonedx
           path: sbom-image.cyclonedx.json
@@ -261,7 +261,7 @@ jobs:
             --bundle dist/sbom-image.cyclonedx.json.bundle
 
       - name: Upload signed SBOM artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sbom-image-signed
           path: |
