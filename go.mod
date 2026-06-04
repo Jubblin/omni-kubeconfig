@@ -4,7 +4,7 @@ go 1.26.3
 
 require (
 	github.com/blang/semver/v4 v4.0.0
-	github.com/cosi-project/runtime v1.16.0
+	github.com/cosi-project/runtime v1.16.1
 	github.com/siderolabs/go-api-signature v0.3.12
 	github.com/siderolabs/go-kubeconfig v0.1.2
 	github.com/siderolabs/omni/client v1.8.1
@@ -19,7 +19,6 @@ require (
 	github.com/ProtonMail/go-crypto v1.4.1 // indirect
 	github.com/ProtonMail/go-mime v0.0.0-20230322103455-7d82a3887f2f // indirect
 	github.com/ProtonMail/gopenpgp/v2 v2.10.0 // indirect
-	github.com/ProtonMail/gopenpgp/v3 v3.4.1 // indirect
 	github.com/adrg/xdg v0.5.3 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
