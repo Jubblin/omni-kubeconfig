@@ -64,6 +64,4 @@ changelog:
       - "^chore:"
 
 release:
-  github:
-    draft: false
   name_template: "{{ .ProjectName }} {{ .Tag }}"

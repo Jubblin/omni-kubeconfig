@@ -197,6 +197,7 @@ Open in VS Code / Cursor → **Reopen in Container**. Includes Go 1.25, golangci
 ```bash
 make check       # test + lint + host build + all platform builds
 make build-all   # cross-compile all omnictl platforms into bin/
+make dc-check    # CI-parity checks inside dev container (recommended)
 make sbom        # CycloneDX SBOM (Go modules) → dist/sbom.cyclonedx.json
 make hadolint    # Lint Dockerfile
 make trivy-image # Scan local image + dist/sbom-image.cyclonedx.json (after docker-build)

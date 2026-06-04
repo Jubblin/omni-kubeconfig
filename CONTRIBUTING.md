@@ -36,7 +36,9 @@ Configure Omni access on your machine (`~/.talos/omni/config` and PGP keys) befo
 
 1. Fork the repository and create a branch from `main`.
 2. Make focused changes; keep PRs small when possible.
-3. Run `make check` before opening a PR. For Docker changes, also run `make hadolint` and `make docker-build` (CI runs Hadolint, Trivy, and SBOM/signing separately).
+3. Run checks before opening a PR:
+   - **Dev Container (recommended):** `make dc-check` — same image as `.devcontainer/`; runs test, lint, GoReleaser, Hadolint, build, SBOM.
+   - **Host:** `make check` (plus `make hadolint` / `make docker-build` for Docker changes).
 4. Update [CHANGELOG.md](CHANGELOG.md) under **Unreleased** for user-visible changes.
 5. Follow [Conventional Commits](https://www.conventionalcommits.org/) for commit messages when practical (`feat:`, `fix:`, `docs:`).
 
