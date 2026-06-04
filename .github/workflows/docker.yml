@@ -1,0 +1,271 @@
+name: Docker
+
+on:
+  push:
+    branches: [main, master]
+    tags: [v*]
+  pull_request:
+    branches: [main, master]
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+  attestations: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE: ghcr.io/jubblin/omni-kubeconfig
+
+jobs:
+  hadolint:
+    name: Hadolint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+          verbose: true
+          failure-threshold: warning
+
+  docker:
+    name: Build image
+    needs: hadolint
+    runs-on: ubuntu-latest
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+      pushed: ${{ steps.buildver.outputs.pushed }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build version metadata
+        id: buildver
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+            echo "pushed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=0.0.0-ci" >> "$GITHUB_OUTPUT"
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: steps.buildver.outputs.pushed == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker metadata (release)
+        if: steps.buildver.outputs.pushed == 'true'
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
+
+      - name: Build and push (release)
+        if: steps.buildver.outputs.pushed == 'true'
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ steps.buildver.outputs.version }}
+            COMMIT=${{ github.sha }}
+            DATE=${{ steps.buildver.outputs.date }}
+          provenance: mode=max
+          sbom: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build (CI — no push)
+        if: steps.buildver.outputs.pushed != 'true'
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: omni-kubeconfig:ci
+          build-args: |
+            VERSION=${{ steps.buildver.outputs.version }}
+            COMMIT=${{ github.sha }}
+            DATE=${{ steps.buildver.outputs.date }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Verify image runs
+        if: steps.buildver.outputs.pushed != 'true'
+        run: docker run --rm omni-kubeconfig:ci --version
+
+      - name: Export image tarball (CI)
+        if: steps.buildver.outputs.pushed != 'true'
+        run: docker save omni-kubeconfig:ci | gzip -1 > image.tar.gz
+
+      - name: Upload image tarball
+        if: steps.buildver.outputs.pushed != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image
+          path: image.tar.gz
+          retention-days: 1
+
+  trivy:
+    name: Trivy
+    needs: docker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan Dockerfile (misconfigurations)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: config
+          scan-ref: Dockerfile
+          severity: CRITICAL,HIGH
+          exit-code: 1
+
+      - name: Load image tarball (CI)
+        if: needs.docker.outputs.pushed != 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+
+      - name: Import image (CI)
+        if: needs.docker.outputs.pushed != 'true'
+        run: gunzip -c image.tar.gz | docker load
+
+      - name: Log in to GHCR
+        if: needs.docker.outputs.pushed == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Scan container image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: >-
+            ${{ needs.docker.outputs.pushed == 'true'
+              && format('{0}@{1}', env.IMAGE, needs.docker.outputs.digest)
+              || 'omni-kubeconfig:ci' }}
+          format: table
+          severity: CRITICAL,HIGH
+          exit-code: 1
+          ignore-unfixed: true
+
+      - name: Prepare dist
+        run: mkdir -p dist
+
+      - name: Generate container SBOM (CycloneDX)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: >-
+            ${{ needs.docker.outputs.pushed == 'true'
+              && format('{0}@{1}', env.IMAGE, needs.docker.outputs.digest)
+              || 'omni-kubeconfig:ci' }}
+          format: cyclonedx
+          output: dist/sbom-image.cyclonedx.json
+
+      - name: Verify container SBOM
+        run: test -s dist/sbom-image.cyclonedx.json
+
+      # Upload a flat artifact (basename only) so download-artifact can extract to path: dist.
+      - name: Prepare SBOM artifact for upload
+        run: cp dist/sbom-image.cyclonedx.json sbom-image.cyclonedx.json
+
+      - name: Upload container SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-image-cyclonedx
+          path: sbom-image.cyclonedx.json
+
+  sign:
+    name: Sign
+    needs: [docker, trivy]
+    if: needs.docker.outputs.pushed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    steps:
+      - name: Download container SBOM
+        uses: actions/download-artifact@v4
+        with:
+          name: sbom-image-cyclonedx
+
+      - name: Stage SBOM for signing
+        run: |
+          mkdir -p dist
+          if [ -f dist/sbom-image.cyclonedx.json ]; then
+            :
+          elif [ -f sbom-image-cyclonedx.json ]; then
+            cp sbom-image-cyclonedx.json dist/sbom-image.cyclonedx.json
+          elif [ -f sbom-image-cyclonedx/sbom-image.cyclonedx.json ]; then
+            cp sbom-image-cyclonedx/sbom-image.cyclonedx.json dist/sbom-image.cyclonedx.json
+          elif [ -f sbom-image-cyclonedx/dist/sbom-image.cyclonedx.json ]; then
+            cp sbom-image-cyclonedx/dist/sbom-image.cyclonedx.json dist/sbom-image.cyclonedx.json
+          else
+            echo "::error::SBOM not found after artifact download"
+            find . -name 'sbom-image.cyclonedx.json' -type f
+            exit 1
+          fi
+          test -s dist/sbom-image.cyclonedx.json
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.7.0
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Sign image (keyless)
+        env:
+          COSIGN_EXPERIMENTAL: 1
+        run: |
+          cosign sign --yes "${{ env.IMAGE }}@${{ needs.docker.outputs.digest }}"
+
+      - name: Attach SBOM attestation
+        env:
+          COSIGN_EXPERIMENTAL: 1
+        run: |
+          cosign attach sbom --sbom dist/sbom-image.cyclonedx.json \
+            "${{ env.IMAGE }}@${{ needs.docker.outputs.digest }}"
+
+      - name: Sign container SBOM blob
+        env:
+          COSIGN_EXPERIMENTAL: 1
+        run: |
+          cosign sign-blob --yes dist/sbom-image.cyclonedx.json \
+            --output-signature dist/sbom-image.cyclonedx.json.sig \
+            --output-certificate dist/sbom-image.cyclonedx.json.pem \
+            --bundle dist/sbom-image.cyclonedx.json.bundle
+
+      - name: Upload signed SBOM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-image-signed
+          path: |
+            dist/sbom-image.cyclonedx.json
+            dist/sbom-image.cyclonedx.json.sig
+            dist/sbom-image.cyclonedx.json.pem
+            dist/sbom-image.cyclonedx.json.bundle

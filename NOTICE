@@ -1,0 +1,12 @@
+omni-kubeconfig
+Copyright 2026 Richard Worwood
+
+This product includes software developed by third parties:
+
+- github.com/siderolabs/omni/client — Mozilla Public License 2.0
+- github.com/siderolabs/go-api-signature — Mozilla Public License 2.0
+- github.com/siderolabs/go-kubeconfig — Mozilla Public License 2.0
+- Additional dependencies — see go.mod and their respective licenses
+
+The Omni name and Sidero Omni are trademarks of Sidero Labs, Inc. This project
+is not affiliated with or endorsed by Sidero Labs.

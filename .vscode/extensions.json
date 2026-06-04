@@ -1,0 +1,7 @@
+{
+  "recommendations": [
+    "golang.go",
+    "golangci.golangci-lint",
+    "editorconfig.editorconfig"
+  ]
+}

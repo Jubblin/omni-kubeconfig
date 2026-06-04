@@ -1,0 +1,63 @@
+# Binaries (make build / build-all → bin/)
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go build & test
+/vendor/
+*.test
+*.out
+*.prof
+coverage.txt
+coverage.html
+dist/
+go.work
+go.work.sum
+
+# IDE & editors
+.idea/
+*.swp
+*.swo
+*~
+.vscode/*
+!.vscode/extensions.json
+
+# OS
+.DS_Store
+._*
+.AppleDouble
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Environment & local config
+.env
+.env.*
+!.env.example
+
+# Secrets — never commit
+.talos/
+omniconfig
+omniconfig.*
+omniconfig.yaml
+omniconfig.yml
+kubeconfig
+kubeconfig.*
+omni-merged-config
+# Binary names at repo root (not cmd/omni-kubeconfig/)
+/omni-kubeconfig
+/omni-kubeconfig-*
+.kube/config.local
+*.pgp
+
+# Docker & GoReleaser (local caches / scratch)
+.docker/
+.goreleaser-cache/
+.goreleaser.yaml.bak
+
+# Misc
+*.log
+/tmp/

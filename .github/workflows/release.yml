@@ -1,0 +1,55 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  goreleaser:
+    name: GoReleaser
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.7.0
+
+      - name: Sign module SBOM (keyless)
+        env:
+          COSIGN_EXPERIMENTAL: 1
+        run: |
+          test -f dist/sbom.cyclonedx.json
+          cosign sign-blob --yes dist/sbom.cyclonedx.json \
+            --output-signature dist/sbom.cyclonedx.json.sig \
+            --output-certificate dist/sbom.cyclonedx.json.pem \
+            --bundle dist/sbom.cyclonedx.json.bundle
+
+      - name: Upload SBOM signatures to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${GITHUB_REF_NAME}" \
+            dist/sbom.cyclonedx.json.sig \
+            dist/sbom.cyclonedx.json.pem \
+            dist/sbom.cyclonedx.json.bundle \
+            --clobber

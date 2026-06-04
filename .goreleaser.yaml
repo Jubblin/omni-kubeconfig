@@ -1,0 +1,69 @@
+# Release targets match omnictl binaries from siderolabs/omni:
+#   darwin-amd64, darwin-arm64, linux-amd64, linux-arm64, windows-amd64.exe
+# (no windows/arm64 — same as upstream Dockerfile omnictl-* targets)
+
+version: 2
+
+project_name: omni-kubeconfig
+
+before:
+  hooks:
+    - go mod tidy
+    - go test -buildvcs=false ./...
+    - go install github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@v1.10.0
+
+builds:
+  - id: omni-kubeconfig
+    main: ./cmd/omni-kubeconfig
+    binary: omni-kubeconfig
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X github.com/Jubblin/omni-kubeconfig/internal/version.Version={{.Version}}
+      - -X github.com/Jubblin/omni-kubeconfig/internal/version.Commit={{.Commit}}
+      - -X github.com/Jubblin/omni-kubeconfig/internal/version.Date={{.Date}}
+
+archives:
+  - id: binaries
+    ids:
+      - omni-kubeconfig
+    formats:
+      - binary
+    # Match omnictl asset names: omni-kubeconfig-darwin-amd64, omni-kubeconfig-windows-amd64.exe
+    name_template: "{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}"
+
+checksum:
+  name_template: sha256sum.txt
+
+# Module SBOM (CycloneDX JSON) attached to the GitHub release.
+# See https://github.com/CycloneDX/cyclonedx-gomod#-goreleaser-
+sboms:
+  - id: module
+    documents:
+      - sbom.cyclonedx.json
+    artifacts: any
+    cmd: cyclonedx-gomod
+    args: ["mod", "-licenses", "-json", "-output", "$document", "../"]
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^chore:"
+
+release:
+  github:
+    draft: false
+  name_template: "{{ .ProjectName }} {{ .Tag }}"
