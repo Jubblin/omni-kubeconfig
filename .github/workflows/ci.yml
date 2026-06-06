@@ -32,9 +32,10 @@ jobs:
 
   build-platforms:
     name: Build ${{ matrix.id }}
+    needs: trivy
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         include:
           - id: darwin-amd64
@@ -115,6 +116,7 @@ jobs:
 
   trivy:
     name: Trivy
+    needs: lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
