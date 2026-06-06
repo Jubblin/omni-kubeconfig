@@ -392,3 +392,46 @@ make docker-build && make trivy-image   # dist/sbom-image.cyclonedx.json
 ## Security
 
 See [SECURITY.md](SECURITY.md). Do not commit kubeconfigs, omniconfig, or PGP keys.
+
+## Fix: CI build failure (`go-api-signature` / gopenpgp)
+
+Tracking issue: [#37](https://github.com/Jubblin/omni-kubeconfig/issues/37)
+
+### Symptom
+
+After Renovate merged `github.com/siderolabs/go-api-signature` **v0.3.13** ([#26](https://github.com/Jubblin/omni-kubeconfig/pull/26)), GitHub Actions on `main` failed across **Test**, **Lint**, all **Build** matrix jobs, and **Docker Build image** with:
+
+```text
+omni/client@v1.8.1/pkg/omni/resources/auth/public_key.go:66:21:
+cannot use key (*gopenpgp/v2/crypto.Key) as *gopenpgp/v3/crypto.Key in pgp.NewKey
+```
+
+### Root cause
+
+| Dependency | gopenpgp API |
+|------------|----------------|
+| `omni/client` v1.8.1 | **v2** (`public_key.go`) |
+| `go-api-signature` v0.3.13 | **v3** (`pgp.NewKey`) |
+
+The two versions are incompatible until `omni/client` aligns with gopenpgp v3 (or `go-api-signature` reverts to v2).
+
+### Fix applied
+
+1. **Pin** `github.com/siderolabs/go-api-signature` to **v0.3.12** in `go.mod` (v2-compatible).
+2. **Block Renovate** from re-bumping to v0.3.13+ via `renovate.json` `packageRules` until upstream is compatible.
+
+Verify locally:
+
+```bash
+go build ./...
+make test
+```
+
+### Remove when
+
+Drop the pin and Renovate rule when either:
+
+- `github.com/siderolabs/omni/client` ships a release compatible with `go-api-signature` v0.3.13+, or
+- `go-api-signature` documents a supported combination with `omni/client` v1.8.x.
+
+After upgrading, run `go build ./...`, `make test`, and confirm GitHub Actions are green on `main` before closing the tracking issue.

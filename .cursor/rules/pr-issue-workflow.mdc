@@ -1,0 +1,46 @@
+---
+description: Open a tracking issue before PRs; reference it in commits; verify CI before closing
+alwaysApply: true
+---
+
+# PR and issue workflow
+
+Before creating a pull request, open a tracking issue in the destination's native system (GitHub Issues for this repo). Link that issue through the work lifecycle and only close it after merge when pipelines are clean.
+
+## Before the PR
+
+1. Open an issue describing the problem, goal, and acceptance criteria.
+2. Use the issue number in commits and the eventual PR.
+
+Commit message example:
+
+```
+fix: pin go-api-signature to v0.3.12
+
+omni/client v1.8.1 is incompatible with go-api-signature v0.3.13 (gopenpgp v2/v3).
+
+Fixes #42
+```
+
+Use `Fixes #N`, `Closes #N`, or `Refs #N` consistently with the repo's linking conventions.
+
+## While the PR is open
+
+- Reference the issue in the PR title or description (e.g. `Fixes #42`).
+- Update the issue as work progresses: scope changes, blockers, review feedback, and CI failures.
+- Do not treat the PR description alone as the source of truth — keep the issue current.
+
+## On merge
+
+1. Confirm GitHub Actions (and any other required pipelines) completed successfully on the merged commit on `main`.
+2. If pipelines fail on `main`, reopen or keep the issue open, fix forward, and re-verify.
+3. Close the issue only after pipelines are green on the merged result.
+
+## Agent checklist
+
+- [ ] Issue opened before PR creation
+- [ ] Commits reference the issue (`Fixes` / `Refs #N`)
+- [ ] PR links to the issue
+- [ ] Issue updated during review and CI iterations
+- [ ] Post-merge pipeline status checked on `main`
+- [ ] Issue closed only after clean pipeline runs
