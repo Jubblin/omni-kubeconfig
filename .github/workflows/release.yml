@@ -5,9 +5,7 @@ on:
     tags:
       - "v*"
 
-permissions:
-  contents: write
-  id-token: write
+permissions: {}
 
 env:
   REGISTRY: ghcr.io
@@ -17,6 +15,10 @@ jobs:
   goreleaser:
     name: GoReleaser
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      actions: write
     steps:
       - uses: actions/checkout@v6
         with:
@@ -71,6 +73,7 @@ jobs:
       packages: write
       id-token: write
       attestations: write
+      actions: write
     outputs:
       digest: ${{ steps.build.outputs.digest }}
     steps:

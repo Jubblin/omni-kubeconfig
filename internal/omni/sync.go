@@ -35,92 +35,136 @@ type SyncOptions struct {
 
 // Sync downloads kubeconfigs for all (or filtered) clusters and merges them.
 func Sync(opts SyncOptions) error {
-	var merged int
-
 	return WithClient(opts.ClientOptions, func(ctx context.Context, c *client.Client) error {
-		names, err := listClusterNames(ctx, c, opts.Clusters)
-		if err != nil {
-			return err
-		}
-
-		if len(names) == 0 {
-			fmt.Fprintln(os.Stderr, "no clusters found")
-			return nil
-		}
-
-		slices.Sort(names)
-
-		if opts.DryRun {
-			fmt.Fprintf(os.Stderr, "would sync %d cluster(s):\n", len(names))
-			for _, name := range names {
-				fmt.Fprintf(os.Stderr, "  %s\n", name)
-			}
-			return nil
-		}
-
-		outputPath, err := filepath.Abs(opts.OutputPath)
-		if err != nil {
-			return err
-		}
-
-		if err := os.MkdirAll(filepath.Dir(outputPath), 0o755); err != nil {
-			return fmt.Errorf("create output directory: %w", err)
-		}
-
-		merger, err := mergerForSync(outputPath, opts.MergeExisting)
-		if err != nil {
-			return err
-		}
-
-		kubeOpts := []management.KubeconfigOption{
-			management.WithGrantType(opts.GrantType),
-		}
-
-		var failures []string
-
-		for _, name := range names {
-			data, dlErr := c.Management().WithCluster(name).Kubeconfig(ctx, kubeOpts...)
-			if dlErr != nil {
-				if code, ok := status.FromError(dlErr); ok && code.Code() == codes.NotFound {
-					fmt.Fprintf(os.Stderr, "[WARN] cluster %q not found, skipping\n", name)
-				} else {
-					fmt.Fprintf(os.Stderr, "[WARN] cluster %q: %v\n", name, dlErr)
-				}
-				failures = append(failures, name)
-				continue
-			}
-
-			if mergeErr := mergeKubeconfig(merger, data, opts.Force); mergeErr != nil {
-				return fmt.Errorf("merge kubeconfig for %q: %w", name, mergeErr)
-			}
-
-			merged++
-			fmt.Fprintf(os.Stderr, "merged kubeconfig for %q\n", name)
-		}
-
-		if merged == 0 {
-			return fmt.Errorf("no kubeconfigs downloaded (%d failure(s))", len(failures))
-		}
-
-		if err := backupIfExists(outputPath); err != nil {
-			return err
-		}
-
-		if err := (*kubeconfig.Merger)(merger).Write(outputPath); err != nil {
-			return fmt.Errorf("write %q: %w", outputPath, err)
-		}
-
-		if err := os.Chmod(outputPath, 0o640); err != nil {
-			return fmt.Errorf("chmod %q: %w", outputPath, err)
-		}
-
-		fmt.Fprintf(os.Stderr, "Merged %d cluster(s) into %s\n", merged, outputPath)
-		if opts.PrintExport {
-			fmt.Printf("export KUBECONFIG=%s\n", outputPath)
-		}
-
-		return nil
+		return syncClusters(ctx, c, opts)
 	})
+}
+
+func syncClusters(ctx context.Context, c *client.Client, opts SyncOptions) error {
+	names, err := listClusterNames(ctx, c, opts.Clusters)
+	if err != nil {
+		return err
+	}
+
+	if len(names) == 0 {
+		fmt.Fprintln(os.Stderr, "no clusters found")
+		return nil
+	}
+
+	slices.Sort(names)
+
+	if opts.DryRun {
+		return printDryRunClusters(names)
+	}
+
+	return syncClustersToFile(ctx, c, opts, names)
+}
+
+func printDryRunClusters(names []string) error {
+	fmt.Fprintf(os.Stderr, "would sync %d cluster(s):\n", len(names))
+	for _, name := range names {
+		fmt.Fprintf(os.Stderr, "  %s\n", name)
+	}
+	return nil
+}
+
+func syncClustersToFile(ctx context.Context, c *client.Client, opts SyncOptions, names []string) error {
+	outputPath, err := prepareOutputPath(opts.OutputPath)
+	if err != nil {
+		return err
+	}
+
+	merger, err := mergerForSync(outputPath, opts.MergeExisting)
+	if err != nil {
+		return err
+	}
+
+	merged, err := fetchAndMergeKubeconfigs(ctx, c, names, opts, merger)
+	if err != nil {
+		return err
+	}
+
+	return writeMergedKubeconfig(outputPath, merger, merged, opts.PrintExport)
+}
+
+func prepareOutputPath(path string) (string, error) {
+	outputPath, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+
+	if err := os.MkdirAll(filepath.Dir(outputPath), 0o755); err != nil {
+		return "", fmt.Errorf("create output directory: %w", err)
+	}
+
+	return outputPath, nil
+}
+
+func fetchAndMergeKubeconfigs(
+	ctx context.Context,
+	c *client.Client,
+	names []string,
+	opts SyncOptions,
+	merger *clientcmdapi.Config,
+) (int, error) {
+	kubeOpts := []management.KubeconfigOption{
+		management.WithGrantType(opts.GrantType),
+	}
+
+	var merged int
+	var failures []string
+
+	for _, name := range names {
+		data, dlErr := c.Management().WithCluster(name).Kubeconfig(ctx, kubeOpts...)
+		if dlErr != nil {
+			logClusterDownloadWarning(name, dlErr)
+			failures = append(failures, name)
+			continue
+		}
+
+		if mergeErr := mergeKubeconfig(merger, data, opts.Force); mergeErr != nil {
+			return 0, fmt.Errorf("merge kubeconfig for %q: %w", name, mergeErr)
+		}
+
+		merged++
+		fmt.Fprintf(os.Stderr, "merged kubeconfig for %q\n", name)
+	}
+
+	if merged == 0 {
+		return 0, fmt.Errorf("no kubeconfigs downloaded (%d failure(s))", len(failures))
+	}
+
+	return merged, nil
+}
+
+func logClusterDownloadWarning(name string, dlErr error) {
+	if code, ok := status.FromError(dlErr); ok && code.Code() == codes.NotFound {
+		fmt.Fprintf(os.Stderr, "[WARN] cluster %q not found, skipping\n", name)
+		return
+	}
+
+	fmt.Fprintf(os.Stderr, "[WARN] cluster %q: %v\n", name, dlErr)
+}
+
+func writeMergedKubeconfig(outputPath string, merger *clientcmdapi.Config, merged int, printExport bool) error {
+	if err := backupIfExists(outputPath); err != nil {
+		return err
+	}
+
+	if err := (*kubeconfig.Merger)(merger).Write(outputPath); err != nil {
+		return fmt.Errorf("write %q: %w", outputPath, err)
+	}
+
+	if err := os.Chmod(outputPath, 0o640); err != nil {
+		return fmt.Errorf("chmod %q: %w", outputPath, err)
+	}
+
+	fmt.Fprintf(os.Stderr, "Merged %d cluster(s) into %s\n", merged, outputPath)
+	if printExport {
+		fmt.Printf("export KUBECONFIG=%s\n", outputPath)
+	}
+
+	return nil
 }
 
 func listClusterNames(ctx context.Context, c *client.Client, filter []string) ([]string, error) {
@@ -129,36 +173,62 @@ func listClusterNames(ctx context.Context, c *client.Client, filter []string) ([
 		return nil, fmt.Errorf("list clusters: %w", err)
 	}
 
+	names := matchingClusterNames(list, filterSetFromNames(filter))
+	if err := validateFilterClusters(filter, names); err != nil {
+		return nil, err
+	}
+
+	return names, nil
+}
+
+func filterSetFromNames(filter []string) map[string]struct{} {
 	filterSet := make(map[string]struct{}, len(filter))
 	for _, name := range filter {
 		filterSet[name] = struct{}{}
 	}
+	return filterSet
+}
 
+func matchingClusterNames(list safe.List[*omnires.Cluster], filterSet map[string]struct{}) []string {
 	var names []string
 
 	for cluster := range list.All() {
 		id := cluster.Metadata().ID()
-		if len(filterSet) > 0 {
-			if _, ok := filterSet[id]; !ok {
-				continue
-			}
+		if !clusterMatchesFilter(id, filterSet) {
+			continue
 		}
 		names = append(names, id)
 	}
 
-	if len(filter) > 0 {
-		var missing []string
-		for _, name := range filter {
-			if !slices.Contains(names, name) {
-				missing = append(missing, name)
-			}
-		}
-		if len(missing) > 0 {
-			return nil, fmt.Errorf("cluster(s) not found: %s", strings.Join(missing, ", "))
+	return names
+}
+
+func clusterMatchesFilter(id string, filterSet map[string]struct{}) bool {
+	if len(filterSet) == 0 {
+		return true
+	}
+
+	_, ok := filterSet[id]
+	return ok
+}
+
+func validateFilterClusters(filter, names []string) error {
+	if len(filter) == 0 {
+		return nil
+	}
+
+	var missing []string
+	for _, name := range filter {
+		if !slices.Contains(names, name) {
+			missing = append(missing, name)
 		}
 	}
 
-	return names, nil
+	if len(missing) == 0 {
+		return nil
+	}
+
+	return fmt.Errorf("cluster(s) not found: %s", strings.Join(missing, ", "))
 }
 
 func mergerForSync(path string, mergeExisting bool) (*clientcmdapi.Config, error) {
