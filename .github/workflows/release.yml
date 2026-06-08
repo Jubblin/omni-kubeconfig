@@ -20,7 +20,8 @@ jobs:
     if: >-
       github.event_name == 'push' ||
       (github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.event == 'push')
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -31,9 +32,15 @@ jobs:
       is_snapshot: ${{ steps.release.outputs.snapshot }}
     steps:
       - uses: actions/checkout@v6
+        if: github.event_name != 'workflow_run'
         with:
           fetch-depth: 0
-          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: actions/checkout@v6
+        if: github.event_name == 'workflow_run'
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - uses: actions/setup-go@v6
         with:
@@ -140,6 +147,10 @@ jobs:
   docker:
     name: Docker image
     needs: goreleaser
+    if: >-
+      needs.goreleaser.result == 'success' &&
+      (github.event_name == 'push' ||
+       github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -151,8 +162,12 @@ jobs:
       digest: ${{ steps.build.outputs.digest }}
     steps:
       - uses: actions/checkout@v6
+        if: github.event_name != 'workflow_run'
+
+      - uses: actions/checkout@v6
+        if: github.event_name == 'workflow_run'
         with:
-          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Set image reference
         run: echo "IMAGE=${{ env.REGISTRY }}/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_ENV"
