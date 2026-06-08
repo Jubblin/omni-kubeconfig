@@ -80,8 +80,9 @@ jobs:
       - name: Upload SBOM signatures to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
         run: |
-          gh release upload "${{ steps.release.outputs.tag }}" \
+          gh release upload "${RELEASE_TAG}" \
             dist/sbom.cyclonedx.json.bundle \
             --clobber
 
