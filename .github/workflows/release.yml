@@ -37,9 +37,12 @@ jobs:
           fetch-depth: 0
 
       - uses: actions/checkout@v6
-        if: github.event_name == 'workflow_run'
+        if: >-
+          github.event_name == 'workflow_run' &&
+          github.event.workflow_run.head_repository.full_name == github.repository
         with:
           fetch-depth: 0
+          repository: ${{ github.repository }}
           ref: ${{ github.event.workflow_run.head_sha }}
 
       - uses: actions/setup-go@v6
@@ -165,8 +168,11 @@ jobs:
         if: github.event_name != 'workflow_run'
 
       - uses: actions/checkout@v6
-        if: github.event_name == 'workflow_run'
+        if: >-
+          github.event_name == 'workflow_run' &&
+          github.event.workflow_run.head_repository.full_name == github.repository
         with:
+          repository: ${{ github.repository }}
           ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Set image reference
