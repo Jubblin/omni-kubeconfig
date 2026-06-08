@@ -20,7 +20,14 @@ Requirements:
 
 - Go 1.25+ (see `go.mod`)
 - Make
-- Optional: [golangci-lint](https://golangci-lint.run/)
+- Optional: [golangci-lint](https://golangci-lint.run/) v2.12.2 (match CI)
+- Optional: [pre-commit](https://pre-commit.com/) for git hook checks
+
+```bash
+pip install pre-commit   # or: brew install pre-commit
+make pre-commit-install  # installs the git pre-commit hook
+make pre-commit          # run all hooks manually
+```
 
 ```bash
 git clone https://github.com/Jubblin/omni-kubeconfig.git
@@ -37,6 +44,7 @@ Configure Omni access on your machine (`~/.talos/omni/config` and PGP keys) befo
 1. Fork the repository and create a branch from `main`.
 2. Make focused changes; keep PRs small when possible.
 3. Run checks before opening a PR:
+   - **Pre-commit (optional):** hooks run on each commit (fmt, vet, golangci-lint, yaml, Dockerfile hadolint); `make pre-commit` for a full manual pass.
    - **Dev Container (recommended):** `make dc-check` — same image as `.devcontainer/`; runs test, lint, GoReleaser, Hadolint, build, SBOM.
    - **Host:** `make check` (plus `make hadolint` / `make docker-build` for Docker changes).
 4. Update [CHANGELOG.md](CHANGELOG.md) under **Unreleased** for user-visible changes.

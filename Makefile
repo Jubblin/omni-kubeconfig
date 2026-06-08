@@ -42,7 +42,7 @@ DC_RUN := docker run --rm \
 
 .PHONY: build install build-all build-platform test lint check version clean \
 	docker-build docker-run hadolint trivy-image sbom-image sbom bom \
-	dc-shell dc-check dc-setup
+	dc-shell dc-check dc-setup pre-commit pre-commit-install
 
 build:
 	go build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o bin/$(BINARY) $(CMD)
@@ -73,6 +73,13 @@ test:
 
 lint:
 	golangci-lint run ./...
+
+# Run all pre-commit hooks (install hooks first: make pre-commit-install).
+pre-commit:
+	pre-commit run --all-files
+
+pre-commit-install:
+	pre-commit install
 
 check: test lint build build-all
 
