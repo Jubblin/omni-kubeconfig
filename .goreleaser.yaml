@@ -8,7 +8,7 @@ project_name: omni-kubeconfig
 
 before:
   hooks:
-    - go mod tidy
+    - go mod download
     - go test -buildvcs=false ./...
     - go install github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@v1.10.0
 
