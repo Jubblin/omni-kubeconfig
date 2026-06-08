@@ -1,0 +1,38 @@
+---
+description: sync command defaults — kubeconfig path and KUBECONFIG export
+globs: cmd/omni-kubeconfig/**,internal/omni/sync.go,README.md
+alwaysApply: false
+---
+
+# sync CLI defaults
+
+## Default output path
+
+Merged kubeconfig writes to **`~/.kube/config`** (kubectl's standard path).
+
+```go
+filepath.Join(home, ".kube", "config")
+```
+
+Override with `-o` / `--output`.
+
+## KUBECONFIG export
+
+Print `export KUBECONFIG=<path>` to stdout **only** when:
+
+- `-o` resolves to a path **other than** the default, and
+- `--print-export` is true (default)
+
+Default-path sync should not print export — kubectl already reads `~/.kube/config`.
+
+Logic lives in `shouldPrintKubeconfigExport` (`cmd/omni-kubeconfig/main.go`).
+
+## Merge behaviour (unchanged)
+
+- `--merge-existing=true` (default): incremental merge into existing output
+- `--merge-existing=false`: replace file with clusters synced this run
+- Existing file backed up to `<path>.bak.<timestamp>` before write
+
+## Docs
+
+Keep README image-tag examples and sync examples aligned with these defaults.
