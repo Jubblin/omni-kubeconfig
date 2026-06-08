@@ -347,9 +347,9 @@ func TestWriteMergedKubeconfigNoPrintExport(t *testing.T) {
 }
 
 func TestMergeKubeconfigForceOverwrite(t *testing.T) {
-	conflictB := strings.Replace(kubeconfigB, "cluster-b", "cluster-a", -1)
-	conflictB = strings.Replace(conflictB, "user-b", "user-a", -1)
-	conflictB = strings.Replace(conflictB, "token-b", "token-conflict", -1)
+	conflictB := strings.ReplaceAll(kubeconfigB, "cluster-b", "cluster-a")
+	conflictB = strings.ReplaceAll(conflictB, "user-b", "user-a")
+	conflictB = strings.ReplaceAll(conflictB, "token-b", "token-conflict")
 
 	merger := clientcmdapi.NewConfig()
 	if err := mergeKubeconfig(merger, []byte(kubeconfigA), false); err != nil {
@@ -366,9 +366,9 @@ func TestMergeKubeconfigForceOverwrite(t *testing.T) {
 }
 
 func TestMergeKubeconfigWithoutForceKeepsOriginalOnConflict(t *testing.T) {
-	conflictB := strings.Replace(kubeconfigB, "cluster-b", "cluster-a", -1)
-	conflictB = strings.Replace(conflictB, "user-b", "user-a", -1)
-	conflictB = strings.Replace(conflictB, "token-b", "token-conflict", -1)
+	conflictB := strings.ReplaceAll(kubeconfigB, "cluster-b", "cluster-a")
+	conflictB = strings.ReplaceAll(conflictB, "user-b", "user-a")
+	conflictB = strings.ReplaceAll(conflictB, "token-b", "token-conflict")
 
 	merger := clientcmdapi.NewConfig()
 	if err := mergeKubeconfig(merger, []byte(kubeconfigA), false); err != nil {
