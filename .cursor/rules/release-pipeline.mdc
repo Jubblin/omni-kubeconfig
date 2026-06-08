@@ -17,7 +17,8 @@ Do not change CI checks/workflows just to make failures pass. Fix the code or co
 
 ## Push to `main` (snapshot)
 
-- GoReleaser: `release --snapshot --clean`
+- GoReleaser: `build --snapshot --clean` (v2 skips publish on `release --snapshot`)
+- `gh release create` + upload assets for the snapshot prerelease
 - Release tag: `<latest-v-tag>-snapshot` (e.g. `v0.1.1-snapshot` from `git describe --tags --match 'v*'`)
 - `GORELEASER_CURRENT_TAG` set to that snapshot tag
 - Binary version suffix: `{{ .Version }}-snapshot` in `.goreleaser.yaml`

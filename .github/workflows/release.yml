@@ -10,7 +10,7 @@ permissions: {}
 
 env:
   REGISTRY: ghcr.io
-  IMAGE: ghcr.io/jubblin/omni-kubeconfig
+  IMAGE: ghcr.io/${{ github.repository }}
 
 jobs:
   goreleaser:
@@ -37,19 +37,17 @@ jobs:
         id: release
         run: |
           if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-            echo "goreleaser_args=release --clean" >> "$GITHUB_OUTPUT"
             echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
             echo "snapshot=false" >> "$GITHUB_OUTPUT"
           else
             LATEST_TAG="$(git describe --tags --match 'v*' --abbrev=0 2>/dev/null || echo v0.0.0)"
-            echo "goreleaser_args=release --snapshot --clean" >> "$GITHUB_OUTPUT"
             echo "tag=${LATEST_TAG}-snapshot" >> "$GITHUB_OUTPUT"
             echo "snapshot=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: GoReleaser (release)
         if: steps.release.outputs.snapshot == 'false'
-        uses: goreleaser/goreleaser-action@v7
+        uses: goreleaser/goreleaser-action@5daf1e915a5f0af01ddbcd89a43b8061ff4f1a89 # v7
         with:
           version: "~> v2"
           args: release --clean
@@ -61,10 +59,27 @@ jobs:
         uses: goreleaser/goreleaser-action@5daf1e915a5f0af01ddbcd89a43b8061ff4f1a89 # v7
         with:
           version: "~> v2"
-          args: release --snapshot --clean
+          args: build --snapshot --clean
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_CURRENT_TAG: ${{ steps.release.outputs.tag }}
+
+      - name: Publish snapshot GitHub release
+        if: steps.release.outputs.snapshot == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          if ! gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+            gh release create "${RELEASE_TAG}" \
+              --prerelease \
+              --target "${GITHUB_SHA}" \
+              --title "omni-kubeconfig ${RELEASE_TAG}"
+          fi
+          gh release upload "${RELEASE_TAG}" \
+            dist/omni-kubeconfig-* \
+            dist/sha256sum.txt \
+            dist/sbom.cyclonedx.json \
+            --clobber
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@v4.1.2
@@ -142,7 +157,7 @@ jobs:
             type=raw,value=latest,enable=${{ needs.goreleaser.outputs.is_snapshot == 'false' }}
             type=raw,value=${{ needs.goreleaser.outputs.release_tag }},enable=${{ needs.goreleaser.outputs.is_snapshot == 'true' }}
 
-      - name: Build and push
+      - name: Build and push to GHCR
         id: build
         uses: docker/build-push-action@v7
         with:

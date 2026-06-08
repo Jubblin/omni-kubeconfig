@@ -7,7 +7,8 @@ version: 2
 project_name: omni-kubeconfig
 
 snapshot:
-  version_template: "{{ .Version }}-snapshot"
+  # Tag is already v*-snapshot from the workflow; avoid appending -snapshot twice.
+  version_template: "{{ .Tag }}"
 
 before:
   hooks:
