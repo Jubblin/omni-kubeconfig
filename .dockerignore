@@ -1,6 +1,8 @@
 # Build artifacts & caches
 bin/
-dist/
+dist/*
+!dist/omni-kubeconfig-linux-amd64
+!dist/omni-kubeconfig-linux-arm64
 vendor/
 *.test
 *.out

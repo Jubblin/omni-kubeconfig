@@ -176,7 +176,7 @@ Override paths with flags or env vars (same as the native CLI): `--omniconfig`, 
 ### Build and run locally
 
 ```bash
-make docker-build                    # tags ghcr.io/jubblin/omni-kubeconfig:local
+make docker-build                    # cross-compile linux/amd64 binary, then image
 make docker-run ARGS="--version"
 make docker-run ARGS="auth"
 make docker-run ARGS="sync --dry-run"
@@ -214,8 +214,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
 | [ci.yml](.github/workflows/ci.yml) | Push/PR to `main` | Test, vet, lint, cross-compile, Go module SBOM (`cyclonedx-gomod`), Trivy dependency scan |
-| [docker.yml](.github/workflows/docker.yml) | Push/PR / tag `v*` | Hadolint → build image → Trivy scan + image SBOM; on tag: push to GHCR, Cosign sign image + SBOM |
-| [release.yml](.github/workflows/release.yml) | Tag `v*` | GoReleaser binaries + module SBOM; Cosign sign-blob for `sbom.cyclonedx.json` |
+| [docker.yml](.github/workflows/docker.yml) | Push/PR to `main` | Hadolint → stage linux/amd64 binary → build image → Trivy scan + image SBOM |
+| [release.yml](.github/workflows/release.yml) | Tag `v*` | GoReleaser binaries + module SBOM; then Docker image (from release binaries) → GHCR push, Trivy, Cosign |
 
 [Dependabot](.github/dependabot.yml) updates Go modules and GitHub Actions weekly.
 
@@ -227,7 +227,7 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
-GoReleaser publishes bare binaries (naming matches `omnictl-*`) for darwin/linux amd64+arm64 and windows amd64 only. See [.goreleaser.yaml](.goreleaser.yaml).
+GoReleaser publishes bare binaries (naming matches `omnictl-*`) for darwin/linux amd64+arm64 and windows amd64 only. The container image is built from the GoReleaser linux binaries after that job completes. See [.goreleaser.yaml](.goreleaser.yaml).
 
 Versioning follows [Semantic Versioning](https://semver.org/) — see [CHANGELOG.md](CHANGELOG.md).
 
@@ -352,7 +352,7 @@ omni-kubeconfig sync --grant-type authcode-keyboard
 ├── internal/omni/          # Omni client, auth, sync
 ├── internal/version/       # Semver metadata
 ├── .devcontainer/          # Dev Container spec
-├── Dockerfile              # Multi-stage image (distroless runtime)
+├── Dockerfile              # Distroless image (copies GoReleaser linux binaries from dist/)
 ├── .github/workflows/      # CI, Docker, and release pipelines
 ├── CHANGELOG.md
 ├── CONTRIBUTING.md
@@ -375,7 +375,7 @@ Omni and Sidero Labs are trademarks of [Sidero Labs, Inc.](https://www.siderolab
 |----------|-----------|------|
 | `sbom.cyclonedx.json` | [cyclonedx-gomod](https://github.com/CycloneDX/cyclonedx-gomod) | Go modules (CI + release) |
 | `sbom-fs.cyclonedx.json` | [Trivy](https://trivy.dev/) filesystem scan | CI |
-| `sbom-image.cyclonedx.json` | Trivy image scan | [docker.yml](.github/workflows/docker.yml) |
+| `sbom-image.cyclonedx.json` | Trivy image scan | [docker.yml](.github/workflows/docker.yml) (CI), [release.yml](.github/workflows/release.yml) (releases) |
 
 **Locally:**
 
@@ -387,7 +387,7 @@ make docker-build && make trivy-image   # dist/sbom-image.cyclonedx.json
 
 **CI:** [ci.yml](.github/workflows/ci.yml) generates and uploads the module SBOM; Trivy scans dependencies (`CRITICAL`/`HIGH`, unfixed ignored). [docker.yml](.github/workflows/docker.yml) runs Hadolint, builds the image, Trivy-scans the Dockerfile and image, and uploads `sbom-image-cyclonedx`.
 
-**Releases:** GoReleaser attaches `sbom.cyclonedx.json` to [GitHub Releases](https://github.com/Jubblin/omni-kubeconfig/releases). [release.yml](.github/workflows/release.yml) Cosign-signs that SBOM blob (`.sig`, `.pem`, `.bundle`). On `v*` tags, [docker.yml](.github/workflows/docker.yml) pushes the image to `ghcr.io/jubblin/omni-kubeconfig`, enables build provenance/SBOM attestations, and keyless-signs the image plus container SBOM with [Sigstore Cosign](https://docs.sigstore.dev/).
+**Releases:** GoReleaser attaches `sbom.cyclonedx.json` to [GitHub Releases](https://github.com/Jubblin/omni-kubeconfig/releases). [release.yml](.github/workflows/release.yml) Cosign-signs that SBOM bundle, then builds the Docker image from the release binaries, pushes to `ghcr.io/jubblin/omni-kubeconfig`, and keyless-signs the image plus container SBOM with [Sigstore Cosign](https://docs.sigstore.dev/).
 
 ## Security
 
