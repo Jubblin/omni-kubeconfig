@@ -63,7 +63,7 @@ brew install siderolabs/tap/sidero-tools   # macOS/Linux: omnictl, kubelogin, ta
 ```bash
 omni-kubeconfig auth
 omni-kubeconfig sync
-export KUBECONFIG=~/.kube/omni-merged-config
+export KUBECONFIG=~/.kube/config
 kubectl config get-contexts
 ```
 
@@ -106,7 +106,7 @@ docker run --rm -it \
   -v "$HOME/.talos:$HOME/.talos" \
   "$OKC_IMAGE" auth
 
-# 2) Sync all clusters into ~/.kube/omni-merged-config on the host
+# 2) Sync all clusters into ~/.kube/config on the host
 docker run --rm -it \
   --user "$(id -u):$(id -g)" \
   -e HOME="$HOME" \
@@ -115,7 +115,7 @@ docker run --rm -it \
   "$OKC_IMAGE" sync
 
 # 3) Use kubectl on the host
-export KUBECONFIG="$HOME/.kube/omni-merged-config"
+export KUBECONFIG="$HOME/.kube/config"
 kubectl config get-contexts
 ```
 
@@ -171,7 +171,7 @@ Override paths with flags or env vars (same as the native CLI): `--omniconfig`, 
 | Host path | Container path | Purpose |
 |-----------|----------------|---------|
 | `~/.talos` | `$HOME/.talos` | `omniconfig` (`~/.talos/omni/config`) and PGP keys (`~/.talos/keys`) |
-| `~/.kube` | `$HOME/.kube` | Merged kubeconfig (default `~/.kube/omni-merged-config`) |
+| `~/.kube` | `$HOME/.kube` | Merged kubeconfig (default `~/.kube/config`) |
 
 ### Build and run locally
 
@@ -253,7 +253,7 @@ omni-kubeconfig auth
 omni-kubeconfig auth --force   # delete PGP key and re-login
 ```
 
-Sync all clusters into `~/.kube/omni-merged-config`:
+Sync all clusters into `~/.kube/config`:
 
 ```bash
 omni-kubeconfig sync
@@ -262,11 +262,11 @@ omni-kubeconfig sync
 Use the merged config:
 
 ```bash
-export KUBECONFIG=~/.kube/omni-merged-config
+export KUBECONFIG=~/.kube/config
 kubectl get nodes --context <cluster-name>
 ```
 
-On success, `sync` prints `export KUBECONFIG=<path>` (disable with `--print-export=false`).
+On success, `sync` prints `export KUBECONFIG=<path>` when `-o` is not the default `~/.kube/config` (disable with `--print-export=false`).
 
 ### Docker
 
@@ -297,13 +297,13 @@ Run the same commands inside the published image; mount `~/.talos` and `~/.kube`
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `-o`, `--output` | `~/.kube/omni-merged-config` | Merged kubeconfig path |
+| `-o`, `--output` | `~/.kube/config` | Merged kubeconfig path |
 | `-c`, `--cluster` | all | Sync only these clusters (repeatable) |
 | `--merge-existing` | `true` | Load existing output and merge; `false` replaces with clusters synced this run |
 | `--force` | `false` | Overwrite merge conflicts instead of renaming |
 | `--grant-type` | `auto` | OIDC grant: `auto`, `authcode`, `authcode-keyboard` |
 | `--dry-run` | `false` | List clusters only |
-| `--print-export` | `true` | Print `export KUBECONFIG=...` on success |
+| `--print-export` | `true` | Print `export KUBECONFIG=...` when `-o` is not `~/.kube/config` |
 
 ### Environment variables
 
