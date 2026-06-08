@@ -7,7 +7,7 @@ require (
 	github.com/cosi-project/runtime v1.16.1
 	github.com/siderolabs/go-api-signature v0.3.12
 	github.com/siderolabs/go-kubeconfig v0.1.2
-	github.com/siderolabs/omni/client v1.8.1
+	github.com/siderolabs/omni/client v1.8.2
 	github.com/spf13/cobra v1.10.2
 	go.uber.org/zap v1.28.0
 	google.golang.org/grpc v1.81.1
