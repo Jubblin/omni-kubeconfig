@@ -11,12 +11,13 @@ alwaysApply: true
 |----------|---------|------------|
 | `ci.yml` | Push/PR to `main` | No — test, lint, cross-compile, SBOM, Trivy |
 | `docker.yml` | Push/PR to `main` | No — local image build + scan only (`omni-kubeconfig:ci`) |
-| `release.yml` | Push to `main` **and** tag `v*` | Yes — binaries, GH release, GHCR image |
+| `release.yml` | CI success on push to `main` (`workflow_call` from `ci.yml`); tag `v*` push | Yes — binaries, GH release, GHCR image |
 
 Do not change CI checks/workflows just to make failures pass. Fix the code or config causing the failure.
 
 ## Push to `main` (snapshot)
 
+- **CI** runs on the push; **Release** (snapshot) runs as the last CI job after test, lint, SBOM, Trivy, and cross-compile succeed (not on PR runs).
 - GoReleaser: `build --snapshot --clean` (v2 skips publish on `release --snapshot`)
 - `gh release create` + upload assets for the snapshot prerelease
 - Release tag: `<latest-v-tag>-snapshot` (e.g. `v0.1.1-snapshot` from `git describe --tags --match 'v*'`)
