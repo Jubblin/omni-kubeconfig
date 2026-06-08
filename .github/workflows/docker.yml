@@ -6,8 +6,7 @@ on:
   pull_request:
     branches: [main, master]
 
-permissions:
-  contents: read
+permissions: {}
 
 env:
   IMAGE: omni-kubeconfig:ci
@@ -16,6 +15,8 @@ jobs:
   hadolint:
     name: Hadolint
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v6
 
@@ -30,6 +31,9 @@ jobs:
     name: Build image
     needs: hadolint
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
     steps:
       - uses: actions/checkout@v6
 
@@ -75,6 +79,9 @@ jobs:
     name: Trivy
     needs: docker
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
     steps:
       - uses: actions/checkout@v6
 

@@ -6,13 +6,14 @@ on:
   pull_request:
     branches: [main, master]
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v6
 
@@ -34,6 +35,8 @@ jobs:
     name: Build ${{ matrix.id }}
     needs: trivy
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       fail-fast: true
       matrix:
@@ -76,6 +79,8 @@ jobs:
   goreleaser:
     name: GoReleaser config
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v6
 
@@ -93,6 +98,9 @@ jobs:
   sbom:
     name: SBOM
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
     steps:
       - uses: actions/checkout@v6
 
@@ -118,6 +126,9 @@ jobs:
     name: Trivy
     needs: lint
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
     steps:
       - uses: actions/checkout@v6
 
@@ -151,6 +162,9 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v6
 
