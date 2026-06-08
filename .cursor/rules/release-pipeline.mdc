@@ -1,0 +1,50 @@
+---
+description: Release and CI/CD pipeline conventions — snapshot vs tag publishing
+alwaysApply: true
+---
+
+# Release and CI/CD pipeline
+
+## Workflows
+
+| Workflow | Trigger | Publishes? |
+|----------|---------|------------|
+| `ci.yml` | Push/PR to `main` | No — test, lint, cross-compile, SBOM, Trivy |
+| `docker.yml` | Push/PR to `main` | No — local image build + scan only (`omni-kubeconfig:ci`) |
+| `release.yml` | Push to `main` **and** tag `v*` | Yes — binaries, GH release, GHCR image |
+
+Do not change CI checks/workflows just to make failures pass. Fix the code or config causing the failure.
+
+## Push to `main` (snapshot)
+
+- GoReleaser: `release --snapshot --clean`
+- Release tag: `<latest-v-tag>-snapshot` (e.g. `v0.1.1-snapshot` from `git describe --tags --match 'v*'`)
+- `GORELEASER_CURRENT_TAG` set to that snapshot tag
+- Binary version suffix: `{{ .Version }}-snapshot` in `.goreleaser.yaml`
+- Docker GHCR tag: `ghcr.io/jubblin/omni-kubeconfig:v0.1.1-snapshot` only — **not** `latest` or semver
+- Cosign + SBOM upload to the snapshot GitHub prerelease
+
+```bash
+docker pull ghcr.io/jubblin/omni-kubeconfig:v0.1.1-snapshot
+```
+
+## Tag `v*` push (release)
+
+- GoReleaser: `release --clean`
+- Docker GHCR tags: semver (`0.1.2`) + `latest`
+- Full release assets + signed SBOM bundle
+
+```bash
+docker pull ghcr.io/jubblin/omni-kubeconfig:0.1.2
+docker pull ghcr.io/jubblin/omni-kubeconfig:latest
+```
+
+## When editing `release.yml`
+
+- Keep job-level `permissions` scoped per job (`permissions: {}` at workflow level).
+- Docker job always `needs: goreleaser` and uses GoReleaser linux binaries from artifacts.
+- Snapshot vs release tagging is driven by `is_snapshot` / `release_tag` job outputs — do not hardcode version strings in the workflow.
+
+## Tests in release path
+
+GoReleaser `before` hooks run `go test -buildvcs=false ./...` on every release and snapshot build. Add unit tests for release-related logic (path resolution, tagging helpers) rather than relying on manual Omni credentials in CI.

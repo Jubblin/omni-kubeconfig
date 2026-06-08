@@ -6,6 +6,9 @@ version: 2
 
 project_name: omni-kubeconfig
 
+snapshot:
+  version_template: "{{ .Version }}-snapshot"
+
 before:
   hooks:
     - go mod download

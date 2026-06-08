@@ -1,0 +1,41 @@
+---
+description: Unit test conventions for omni-kubeconfig
+globs: **/*_test.go,cmd/**,internal/**
+alwaysApply: false
+---
+
+# Testing
+
+## Run tests
+
+```bash
+go test ./...
+make test
+```
+
+CI **Test** job and GoReleaser `before` hooks both run `go test ./...`.
+
+## Prefer unit tests over live Omni
+
+Test pure logic without Omni credentials:
+
+| Package | Examples |
+|---------|----------|
+| `cmd/omni-kubeconfig` | `defaultKubeconfigPath`, `shouldPrintKubeconfigExport`, Cobra flag defaults |
+| `internal/omni` | merge/backup/filter helpers, `writeMergedKubeconfig` stdout, `matchingClusterNames` |
+
+Use `t.TempDir()`, `t.Setenv("HOME", dir)`, and `captureStdout` / `captureStderr` for I/O assertions.
+
+## Fixtures
+
+- Kubeconfig YAML as const strings in test files
+- Cluster lists via `omnires.NewCluster(id)` + `safe.NewList`
+- No shared `testdata/` unless fixtures are large or reused
+
+## Lint
+
+Use `strings.ReplaceAll` (not `strings.Replace(..., -1)`) — staticcheck QF1004 fails CI.
+
+## When adding behaviour
+
+Add tests in the same PR for CLI defaults, export suppression, merge/filter logic, and path resolution. Reserve manual Omni `sync`/`auth` checks for release validation only.

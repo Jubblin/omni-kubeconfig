@@ -71,7 +71,7 @@ See [Usage](#usage) and [Reference](#reference) below for all flags.
 
 ## Run with Docker
 
-Container images are published to [GitHub Container Registry](https://github.com/Jubblin/omni-kubeconfig/pkgs/container/omni-kubeconfig) as `ghcr.io/jubblin/omni-kubeconfig` when a `v*` release tag is pushed. CI builds the image on every push/PR but does not publish it.
+Container images are published to [GitHub Container Registry](https://github.com/Jubblin/omni-kubeconfig/pkgs/container/omni-kubeconfig) as `ghcr.io/jubblin/omni-kubeconfig` on every push to `main` (snapshot) and on `v*` release tags. [docker.yml](.github/workflows/docker.yml) builds the image on PRs but does not publish it.
 
 The image contains only the `omni-kubeconfig` binary (distroless, no shell). Mount your host Omni credentials and kube output directory; run `kubectl` on the host against the merged file.
 
@@ -79,9 +79,19 @@ The image contains only the `omni-kubeconfig` binary (distroless, no shell). Mou
 
 | Tag | When |
 |-----|------|
+| `v0.1.1-snapshot` | Latest build from `main` (suffix from most recent `v*` tag) |
 | `latest` | Most recent release |
-| `1.2.3` | Exact semver (no `v` prefix) |
-| `1.2`, `1` | Major/minor aliases |
+| `0.1.2` | Exact semver (no `v` prefix) |
+| `0.1`, `0` | Major/minor aliases |
+
+```bash
+# After merging to main (latest tag v0.1.1)
+docker pull ghcr.io/jubblin/omni-kubeconfig:v0.1.1-snapshot
+
+# After tagging v0.1.2
+docker pull ghcr.io/jubblin/omni-kubeconfig:0.1.2
+docker pull ghcr.io/jubblin/omni-kubeconfig:latest
+```
 
 ### Container Prerequisites
 
@@ -215,7 +225,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 |----------|---------|---------|
 | [ci.yml](.github/workflows/ci.yml) | Push/PR to `main` | Test, vet, lint, cross-compile, Go module SBOM (`cyclonedx-gomod`), Trivy dependency scan |
 | [docker.yml](.github/workflows/docker.yml) | Push/PR to `main` | Hadolint → stage linux/amd64 binary → build image → Trivy scan + image SBOM |
-| [release.yml](.github/workflows/release.yml) | Tag `v*` | GoReleaser binaries + module SBOM; then Docker image (from release binaries) → GHCR push, Trivy, Cosign |
+| [release.yml](.github/workflows/release.yml) | Push to `main`, tag `v*` | GoReleaser binaries + module SBOM; Docker image → GHCR (`v*-snapshot` on `main`, semver + `latest` on tags), Trivy, Cosign |
 
 [Dependabot](.github/dependabot.yml) updates Go modules and GitHub Actions weekly.
 
