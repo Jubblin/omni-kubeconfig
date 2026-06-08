@@ -59,9 +59,27 @@ jobs:
         uses: goreleaser/goreleaser-action@5daf1e915a5f0af01ddbcd89a43b8061ff4f1a89 # v7
         with:
           version: "~> v2"
-          args: build --snapshot --clean
+          args: release --snapshot --clean
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_CURRENT_TAG: ${{ steps.release.outputs.tag }}
+
+      - name: Stage flat release binaries
+        run: |
+          set -euo pipefail
+          stage() {
+            local os_arch=$1 dest=$2
+            local src
+            src=$(find dist -type f -path "dist/omni-kubeconfig_${os_arch}_*/omni-kubeconfig*" | head -1)
+            test -n "${src}"
+            cp "${src}" "dist/${dest}"
+            chmod +x "dist/${dest}" 2>/dev/null || true
+          }
+          stage linux_amd64 omni-kubeconfig-linux-amd64
+          stage linux_arm64 omni-kubeconfig-linux-arm64
+          stage darwin_amd64 omni-kubeconfig-darwin-amd64
+          stage darwin_arm64 omni-kubeconfig-darwin-arm64
+          stage windows_amd64 omni-kubeconfig-windows-amd64.exe
 
       - name: Publish snapshot GitHub release
         if: steps.release.outputs.snapshot == 'true'
