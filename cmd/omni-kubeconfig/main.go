@@ -98,13 +98,13 @@ Existing output files are backed up to <path>.bak.<timestamp> before writing (bo
 Merged kubeconfigs use kubectl oidc-login; run kubectl against the output file after sync.
 
 Flags:
-  -o, --output string         Path for the merged kubeconfig (default: ~/.kube/omni-merged-config)
+  -o, --output string         Path for the merged kubeconfig (default: ~/.kube/config)
   -c, --cluster strings       Sync only these cluster names (repeatable; default: all clusters)
       --merge-existing        Load existing output and merge new downloads (default: true)
       --force                 Overwrite conflicting cluster/context/user entries on merge
       --grant-type string     OIDC grant type in downloaded kubeconfigs: auto, authcode, authcode-keyboard
       --dry-run               List clusters that would be synced; do not download or write
-      --print-export          Print "export KUBECONFIG=..." to stdout on success (default: true)
+      --print-export          Print "export KUBECONFIG=..." when -o is not the default path (default: true)
 
 Global flags: --omniconfig, --context, --insecure-skip-tls-verify, --siderov1-keys-dir`,
 		Example: `  omni-kubeconfig sync
@@ -112,28 +112,30 @@ Global flags: --omniconfig, --context, --insecure-skip-tls-verify, --siderov1-ke
   omni-kubeconfig sync -o ~/.kube/omni-prod -c prod -c staging --force
   omni-kubeconfig sync --merge-existing=false`,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			if output == "" {
-				home, err := os.UserHomeDir()
-				if err != nil {
-					return err
-				}
-				output = filepath.Join(home, ".kube", "omni-merged-config")
+			resolvedOutput, err := resolveOutputPath(output)
+			if err != nil {
+				return err
+			}
+
+			printKubeconfigExport, err := shouldPrintKubeconfigExport(resolvedOutput, printExport)
+			if err != nil {
+				return err
 			}
 
 			return omni.Sync(omni.SyncOptions{
 				ClientOptions: clientOpts(),
-				OutputPath:    output,
+				OutputPath:    resolvedOutput,
 				Clusters:      clusters,
 				Force:         force,
 				GrantType:     grantType,
 				DryRun:        dryRun,
-				PrintExport:   printExport,
+				PrintExport:   printKubeconfigExport,
 				MergeExisting: mergeExisting,
 			})
 		},
 	}
 
-	defaultOutput, _ := filepath.Abs(filepath.Join(mustHome(), ".kube", "omni-merged-config"))
+	defaultOutput, _ := defaultKubeconfigPath()
 	syncCmd.Flags().StringVarP(&output, "output", "o", defaultOutput,
 		"path for the merged kubeconfig file")
 	syncCmd.Flags().StringSliceVarP(&clusters, "cluster", "c", nil,
@@ -147,7 +149,7 @@ Global flags: --omniconfig, --context, --insecure-skip-tls-verify, --siderov1-ke
 	syncCmd.Flags().BoolVar(&dryRun, "dry-run", false,
 		"list clusters that would be synced without downloading or writing the output file")
 	syncCmd.Flags().BoolVar(&printExport, "print-export", true,
-		"print export KUBECONFIG=<path> to stdout after a successful sync")
+		"print export KUBECONFIG=<path> after sync when -o is not ~/.kube/config")
 
 	var authForce bool
 
@@ -182,10 +184,32 @@ Environment:
 	return root
 }
 
-func mustHome() string {
+func defaultKubeconfigPath() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return "."
+		return "", err
 	}
-	return home
+
+	return filepath.Abs(filepath.Join(home, ".kube", "config"))
+}
+
+func resolveOutputPath(path string) (string, error) {
+	if path == "" {
+		return defaultKubeconfigPath()
+	}
+
+	return filepath.Abs(path)
+}
+
+func shouldPrintKubeconfigExport(outputPath string, printExport bool) (bool, error) {
+	if !printExport {
+		return false, nil
+	}
+
+	defaultPath, err := defaultKubeconfigPath()
+	if err != nil {
+		return false, err
+	}
+
+	return outputPath != defaultPath, nil
 }
