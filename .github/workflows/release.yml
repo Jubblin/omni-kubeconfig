@@ -9,6 +9,10 @@ permissions:
   contents: write
   id-token: write
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE: ghcr.io/jubblin/omni-kubeconfig
+
 jobs:
   goreleaser:
     name: GoReleaser
@@ -49,3 +53,130 @@ jobs:
           gh release upload "${GITHUB_REF_NAME}" \
             dist/sbom.cyclonedx.json.bundle \
             --clobber
+
+      - name: Upload linux binaries for Docker
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-binaries
+          path: |
+            dist/omni-kubeconfig-linux-amd64
+            dist/omni-kubeconfig-linux-arm64
+
+  docker:
+    name: Docker image
+    needs: goreleaser
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download release binaries
+        uses: actions/download-artifact@v8
+        with:
+          name: release-binaries
+          path: dist
+
+      - name: Verify release binaries
+        run: |
+          test -f dist/omni-kubeconfig-linux-amd64
+          test -f dist/omni-kubeconfig-linux-arm64
+          chmod +x dist/omni-kubeconfig-linux-amd64 dist/omni-kubeconfig-linux-arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: mode=max
+          sbom: true
+
+      - name: Scan Dockerfile (misconfigurations)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: config
+          scan-ref: Dockerfile
+          severity: CRITICAL,HIGH
+          exit-code: 1
+
+      - name: Scan container image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
+          format: table
+          severity: CRITICAL,HIGH
+          exit-code: 1
+          ignore-unfixed: true
+
+      - name: Prepare dist
+        run: mkdir -p dist
+
+      - name: Generate container SBOM (CycloneDX)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
+          format: cyclonedx
+          output: dist/sbom-image.cyclonedx.json
+
+      - name: Verify container SBOM
+        run: test -s dist/sbom-image.cyclonedx.json
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v4.1.2
+
+      - name: Sign image (keyless)
+        env:
+          COSIGN_EXPERIMENTAL: 1
+        run: |
+          cosign sign --yes "${{ env.IMAGE }}@${{ steps.build.outputs.digest }}"
+
+      - name: Attach SBOM attestation
+        env:
+          COSIGN_EXPERIMENTAL: 1
+        run: |
+          cosign attach sbom --sbom dist/sbom-image.cyclonedx.json \
+            "${{ env.IMAGE }}@${{ steps.build.outputs.digest }}"
+
+      - name: Sign container SBOM blob
+        env:
+          COSIGN_EXPERIMENTAL: 1
+        run: |
+          cosign sign-blob --yes dist/sbom-image.cyclonedx.json \
+            --bundle dist/sbom-image.cyclonedx.json.bundle
+
+      - name: Upload signed container SBOM artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: sbom-image-signed
+          path: |
+            dist/sbom-image.cyclonedx.json
+            dist/sbom-image.cyclonedx.json.bundle

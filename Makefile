@@ -120,12 +120,17 @@ trivy-image sbom-image: docker-build
 		--output /out/sbom-image.cyclonedx.json \
 		$(IMAGE):$(IMAGE_TAG)
 
-# Container image (linux/amd64 by default; does not affect build-all / GoReleaser binaries).
-docker-build:
+# Container image (linux/amd64). Uses the same binary layout as GoReleaser releases.
+DOCKER_DIST := dist/omni-kubeconfig-linux-amd64
+
+$(DOCKER_DIST):
+	@mkdir -p dist
+	$(MAKE) build-platform GOOS=linux GOARCH=amd64 VERSION=$(VERSION)
+	cp bin/$(BINARY)-linux-amd64 $@
+
+docker-build: $(DOCKER_DIST)
 	$(DOCKER) build \
-		--build-arg VERSION=$(VERSION) \
-		--build-arg COMMIT=$(COMMIT) \
-		--build-arg DATE=$(DATE) \
+		--platform linux/amd64 \
 		-t $(IMAGE):$(IMAGE_TAG) .
 
 # Mount host Omni credentials and kube output dir; run as host user so writes succeed.
