@@ -5,10 +5,14 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
+	"github.com/cosi-project/runtime/pkg/resource"
+	"github.com/cosi-project/runtime/pkg/safe"
 	"github.com/siderolabs/go-kubeconfig"
+	omnires "github.com/siderolabs/omni/client/pkg/omni/resources/omni"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
@@ -195,6 +199,66 @@ func TestClusterMatchesFilter(t *testing.T) {
 	}
 }
 
+func TestMatchingClusterNames(t *testing.T) {
+	list := testClusterList("alpha", "beta", "gamma")
+
+	got := sortedStrings(matchingClusterNames(list, nil))
+	want := []string{"alpha", "beta", "gamma"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("no filter: got %v, want %v", got, want)
+	}
+
+	filter := filterSetFromNames([]string{"beta", "gamma"})
+	got = sortedStrings(matchingClusterNames(list, filter))
+	want = []string{"beta", "gamma"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("with filter: got %v, want %v", got, want)
+	}
+
+	got = sortedStrings(matchingClusterNames(testClusterList(), nil))
+	if len(got) != 0 {
+		t.Fatalf("empty list: got %v, want []", got)
+	}
+}
+
+func TestPrintDryRunClusters(t *testing.T) {
+	stderr := captureStderr(t, func() error {
+		return printDryRunClusters([]string{"prod", "staging"})
+	})
+
+	if !strings.Contains(stderr, "would sync 2 cluster(s):") {
+		t.Fatalf("stderr = %q, want dry-run header", stderr)
+	}
+	if !strings.Contains(stderr, "  prod\n") || !strings.Contains(stderr, "  staging\n") {
+		t.Fatalf("stderr = %q, want cluster names", stderr)
+	}
+}
+
+func TestPrintDryRunClustersEmpty(t *testing.T) {
+	stderr := captureStderr(t, func() error {
+		return printDryRunClusters(nil)
+	})
+
+	if !strings.Contains(stderr, "would sync 0 cluster(s):") {
+		t.Fatalf("stderr = %q, want empty dry-run header", stderr)
+	}
+}
+
+func testClusterList(ids ...string) safe.List[*omnires.Cluster] {
+	items := make([]resource.Resource, len(ids))
+	for i, id := range ids {
+		items[i] = omnires.NewCluster(id)
+	}
+
+	return safe.NewList[*omnires.Cluster](resource.List{Items: items})
+}
+
+func sortedStrings(ss []string) []string {
+	out := append([]string(nil), ss...)
+	slices.Sort(out)
+	return out
+}
+
 func TestValidateFilterClusters(t *testing.T) {
 	if err := validateFilterClusters(nil, []string{"a"}); err != nil {
 		t.Fatalf("no filter: %v", err)
@@ -322,20 +386,30 @@ func TestMergeKubeconfigWithoutForceKeepsOriginalOnConflict(t *testing.T) {
 
 func captureStdout(t *testing.T, fn func() error) string {
 	t.Helper()
+	return captureWriter(t, &os.Stdout, fn)
+}
 
-	old := os.Stdout
+func captureStderr(t *testing.T, fn func() error) string {
+	t.Helper()
+	return captureWriter(t, &os.Stderr, fn)
+}
+
+func captureWriter(t *testing.T, stream **os.File, fn func() error) string {
+	t.Helper()
+
+	old := *stream
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatal(err)
 	}
-	os.Stdout = w
+	*stream = w
 
 	fnErr := fn()
 
 	if err := w.Close(); err != nil {
 		t.Fatal(err)
 	}
-	os.Stdout = old
+	*stream = old
 
 	var buf bytes.Buffer
 	if _, err := io.Copy(&buf, r); err != nil {
