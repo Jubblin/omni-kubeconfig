@@ -2,5 +2,12 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended"
+  ],
+  "packageRules": [
+    {
+      "matchPackageNames": ["github.com/siderolabs/go-api-signature"],
+      "allowedVersions": "<0.3.13",
+      "description": "omni/client v1.8.1 uses gopenpgp v2; go-api-signature v0.3.13 requires gopenpgp v3"
+    }
   ]
 }
