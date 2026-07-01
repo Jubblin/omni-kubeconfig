@@ -4,7 +4,7 @@ go 1.26.4
 
 require (
 	github.com/blang/semver/v4 v4.0.0
-	github.com/cosi-project/runtime v1.16.1
+	github.com/cosi-project/runtime v1.16.2
 	github.com/siderolabs/go-api-signature v0.3.12
 	github.com/siderolabs/go-kubeconfig v0.1.2
 	github.com/siderolabs/omni/client v1.8.2
