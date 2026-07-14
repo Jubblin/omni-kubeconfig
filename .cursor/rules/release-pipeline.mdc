@@ -9,31 +9,29 @@ alwaysApply: true
 
 | Workflow | Trigger | Publishes? |
 |----------|---------|------------|
-| `ci.yml` | Push/PR to `main` | No — test, lint, cross-compile, SBOM, Trivy |
-| `docker.yml` | Push/PR to `main` | No — local image build + scan only (`omni-kubeconfig:ci`) |
-| `release.yml` | CI success on push to `main` (`workflow_call` from `ci.yml`); tag `v*` push | Yes — binaries, GH release, GHCR image |
+| `ci.yml` | Push/PR to `main` | No — test, lint, GoReleaser snapshot build (`--skip=publish`), SBOM, Trivy |
+| `docker.yml` | Dockerfile path changes | No — Hadolint + Dockerfile Trivy config scan |
+| `release.yml` | CI success on push to `main` (`workflow_call`); tag `vX.Y.Z` push | Yes — GoReleaser binaries, GH release, GHCR via `dockers_v2` |
 
 Do not change CI checks/workflows just to make failures pass. Fix the code or config causing the failure.
 
 ## Push to `main` (snapshot)
 
-- **CI** runs on the push; **Release** (snapshot) runs as the last CI job after test, lint, SBOM, Trivy, and cross-compile succeed (not on PR runs).
-- GoReleaser: `build --snapshot --clean` (v2 skips publish on `release --snapshot`)
-- `gh release create` + upload assets for the snapshot prerelease
-- Release tag: `<latest-v-tag>-snapshot` (e.g. `v0.1.1-snapshot` from `git describe --tags --match 'v*'`)
+- **CI** runs on the push; **Release** runs after test, lint, GoReleaser snapshot build, SBOM, and Trivy succeed (not on PR runs).
+- Release force-updates git tag `<latest-v-tag>-snapshot` (e.g. `v0.1.1-snapshot`) and runs `goreleaser release --clean` (not `--snapshot`) so `dockers_v2` can push multi-arch manifests.
 - `GORELEASER_CURRENT_TAG` set to that snapshot tag
-- Binary version suffix: `{{ .Version }}-snapshot` in `.goreleaser.yaml`
-- Docker GHCR tag: `ghcr.io/jubblin/omni-kubeconfig:v0.1.1-snapshot` only — **not** `latest` or semver
-- Cosign + SBOM upload to the snapshot GitHub prerelease
+- GitHub prerelease + module SBOM via GoReleaser (`release.prerelease: auto`, `replace_existing_artifacts`)
+- Docker GHCR tag: `ghcr.io/jubblin/omni-kubeconfig:v0.1.1-snapshot` only — **not** `latest` or bare semver
+- Cosign + container SBOM after publish; Dockerfile config scan before GoReleaser
 
 ```bash
 docker pull ghcr.io/jubblin/omni-kubeconfig:v0.1.1-snapshot
 ```
 
-## Tag `v*` push (release)
+## Tag `vX.Y.Z` push (release)
 
 - GoReleaser: `release --clean`
-- Docker GHCR tags: semver (`0.1.2`) + `latest`
+- Docker GHCR tags: semver (`0.1.2`) + `major.minor` + `latest`
 - Full release assets + signed SBOM bundle
 
 ```bash
@@ -44,8 +42,9 @@ docker pull ghcr.io/jubblin/omni-kubeconfig:latest
 ## When editing `release.yml`
 
 - Keep job-level `permissions` scoped per job (`permissions: {}` at workflow level).
-- Docker job always `needs: goreleaser` and uses GoReleaser linux binaries from artifacts.
-- Snapshot vs release tagging is driven by `is_snapshot` / `release_tag` job outputs — do not hardcode version strings in the workflow.
+- GoReleaser owns binary build and GHCR push in one job (QEMU + Buildx + GHCR login before `release --clean`).
+- Snapshot vs release tagging is driven by `is_snapshot` / `release_tag` / `image_tag` job outputs — do not hardcode version strings in the workflow.
+- Tag trigger must be `v[0-9]+.[0-9]+.[0-9]+` so `v*-snapshot` force-pushes do not re-enter Release as a full release.
 
 ## Tests in release path
 
