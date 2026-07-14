@@ -55,6 +55,7 @@ omni-merged-config
 
 # Docker & GoReleaser (local caches / scratch)
 .docker/
+.docker-context/
 .goreleaser-cache/
 .goreleaser.yaml.bak
 

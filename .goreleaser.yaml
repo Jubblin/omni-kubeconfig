@@ -1,6 +1,8 @@
 # Release targets match omnictl binaries from siderolabs/omni:
 #   darwin-amd64, darwin-arm64, linux-amd64, linux-arm64, windows-amd64.exe
 # (no windows/arm64 — same as upstream Dockerfile omnictl-* targets)
+#
+# Container images are built/pushed via dockers_v2 (buildx multi-arch manifests).
 
 version: 2
 
@@ -60,6 +62,32 @@ sboms:
     cmd: cyclonedx-gomod
     args: ["mod", "-licenses", "-json", "-output", "$document", "../"]
 
+dockers_v2:
+  - id: ghcr
+    ids:
+      - omni-kubeconfig
+    dockerfile: Dockerfile
+    images:
+      - ghcr.io/jubblin/omni-kubeconfig
+    # Snapshot/prerelease (v*-snapshot): Tag only.
+    # Full release: Version (no v), major.minor, latest.
+    tags:
+      - "{{ if .Prerelease }}{{ .Tag }}{{ else }}{{ .Version }}{{ end }}"
+      - "{{ if not .Prerelease }}{{ .Major }}.{{ .Minor }}{{ end }}"
+      - "{{ if not .Prerelease }}latest{{ end }}"
+    platforms:
+      - linux/amd64
+      - linux/arm64
+    labels:
+      "org.opencontainers.image.title": "{{ .ProjectName }}"
+      "org.opencontainers.image.revision": "{{ .FullCommit }}"
+      "org.opencontainers.image.version": "{{ .Version }}"
+      "org.opencontainers.image.source": "https://github.com/Jubblin/omni-kubeconfig"
+    annotations:
+      "org.opencontainers.image.description": "Omni multi-cluster kubeconfig sync"
+      "org.opencontainers.image.revision": "{{ .FullCommit }}"
+      "org.opencontainers.image.version": "{{ .Version }}"
+
 changelog:
   sort: asc
   filters:
@@ -69,3 +97,9 @@ changelog:
 
 release:
   name_template: "{{ .ProjectName }} {{ .Tag }}"
+  prerelease: auto
+  # Snapshot tags must not become the repo "latest" release.
+  make_latest: "{{ not .Prerelease }}"
+  replace_existing_artifacts: true
+  mode: replace
+  target_commitish: "{{ .Commit }}"

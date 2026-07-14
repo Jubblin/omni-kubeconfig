@@ -4,12 +4,14 @@ on:
   workflow_call:
   push:
     tags:
-      - "v*"
+      # Semver releases only — exclude v*-snapshot (published via workflow_call from CI).
+      - "v[0-9]+.[0-9]+.[0-9]+"
 
 permissions: {}
 
 env:
   REGISTRY: ghcr.io
+  IMAGE: ghcr.io/jubblin/omni-kubeconfig
 
 jobs:
   goreleaser:
@@ -17,11 +19,15 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      packages: write
       id-token: write
       actions: write
+      attestations: write
     outputs:
       release_tag: ${{ steps.release.outputs.tag }}
       is_snapshot: ${{ steps.release.outputs.snapshot }}
+      image_tag: ${{ steps.release.outputs.image_tag }}
+      image_digest: ${{ steps.digest.outputs.digest }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -35,71 +41,92 @@ jobs:
       - name: Set release metadata
         id: release
         run: |
-          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          if [[ "${GITHUB_REF}" == refs/tags/v[0-9]* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+            echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
             echo "snapshot=false" >> "$GITHUB_OUTPUT"
+            # GHCR release tags use Version without leading v (e.g. 0.1.2).
+            echo "image_tag=${TAG#v}" >> "$GITHUB_OUTPUT"
           else
             # Use semver release tags only; snapshot releases create v*-snapshot git tags
             # that git describe would pick up and double-append -snapshot.
             LATEST_TAG="$(git tag -l 'v*' --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)"
             LATEST_TAG="${LATEST_TAG:-v0.0.0}"
-            echo "tag=${LATEST_TAG}-snapshot" >> "$GITHUB_OUTPUT"
+            TAG="${LATEST_TAG}-snapshot"
+            echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
             echo "snapshot=true" >> "$GITHUB_OUTPUT"
+            # Snapshot GHCR tag keeps the leading v (e.g. v0.1.1-snapshot).
+            echo "image_tag=${TAG}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: GoReleaser (release)
-        if: steps.release.outputs.snapshot == 'false'
+      - name: Create snapshot tag for GoReleaser
+        if: steps.release.outputs.snapshot == 'true'
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          git tag -f "${TAG}" "${GITHUB_SHA}"
+          git push origin "refs/tags/${TAG}" --force
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Scan Dockerfile (misconfigurations)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: config
+          scan-ref: Dockerfile
+          severity: CRITICAL,HIGH
+          exit-code: 1
+
+      # Real release (not --snapshot) so dockers_v2 can push multi-arch manifests.
+      # Snapshot path force-tags v*-snapshot above; tag pushes use the pushed semver tag.
+      - name: GoReleaser
         uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7
         with:
           version: "~> v2"
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: GoReleaser (snapshot)
-        if: steps.release.outputs.snapshot == 'true'
-        uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7
-        with:
-          version: "~> v2"
-          args: release --snapshot --clean
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_CURRENT_TAG: ${{ steps.release.outputs.tag }}
 
-      - name: Stage flat release binaries
-        run: |
-          set -euo pipefail
-          stage() {
-            local os_arch=$1 dest=$2
-            local src
-            src=$(find dist -type f -path "dist/omni-kubeconfig_${os_arch}_*/omni-kubeconfig*" | head -1)
-            test -n "${src}"
-            cp "${src}" "dist/${dest}"
-            chmod +x "dist/${dest}" 2>/dev/null || true
-          }
-          stage linux_amd64 omni-kubeconfig-linux-amd64
-          stage linux_arm64 omni-kubeconfig-linux-arm64
-          stage darwin_amd64 omni-kubeconfig-darwin-amd64
-          stage darwin_arm64 omni-kubeconfig-darwin-arm64
-          stage windows_amd64 omni-kubeconfig-windows-amd64.exe
-
-      - name: Publish snapshot GitHub release
-        if: steps.release.outputs.snapshot == 'true'
+      - name: Resolve image digest
+        id: digest
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          IMAGE_TAG: ${{ steps.release.outputs.image_tag }}
         run: |
-          if ! gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
-            gh release create "${RELEASE_TAG}" \
-              --prerelease \
-              --target "${GITHUB_SHA}" \
-              --title "omni-kubeconfig ${RELEASE_TAG}"
-          fi
-          gh release upload "${RELEASE_TAG}" \
-            dist/omni-kubeconfig-* \
-            dist/sha256sum.txt \
-            dist/sbom.cyclonedx.json \
-            --clobber
+          DIGEST="$(docker buildx imagetools inspect "${{ env.IMAGE }}:${IMAGE_TAG}" --format '{{println .Manifest.Digest}}')"
+          test -n "${DIGEST}"
+          echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
+          echo "Resolved ${{ env.IMAGE }}:${IMAGE_TAG}@${DIGEST}"
+
+      - name: Scan container image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE }}@${{ steps.digest.outputs.digest }}
+          format: table
+          severity: CRITICAL,HIGH
+          exit-code: 1
+          ignore-unfixed: true
+
+      - name: Generate container SBOM (CycloneDX)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE }}@${{ steps.digest.outputs.digest }}
+          format: cyclonedx
+          output: dist/sbom-image.cyclonedx.json
+
+      - name: Verify container SBOM
+        run: test -s dist/sbom-image.cyclonedx.json
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@v4.1.2
@@ -121,122 +148,18 @@ jobs:
             dist/sbom.cyclonedx.json.bundle \
             --clobber
 
-      - name: Upload linux binaries for Docker
-        uses: actions/upload-artifact@v7
-        with:
-          name: release-binaries
-          path: |
-            dist/omni-kubeconfig-linux-amd64
-            dist/omni-kubeconfig-linux-arm64
-
-  docker:
-    name: Docker image
-    needs: goreleaser
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
-      attestations: write
-      actions: write
-    outputs:
-      digest: ${{ steps.build.outputs.digest }}
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Set image reference
-        run: echo "IMAGE=${{ env.REGISTRY }}/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_ENV"
-
-      - name: Download release binaries
-        uses: actions/download-artifact@v8
-        with:
-          name: release-binaries
-          path: dist
-
-      - name: Verify release binaries
-        run: |
-          test -f dist/omni-kubeconfig-linux-amd64
-          test -f dist/omni-kubeconfig-linux-arm64
-          chmod +x dist/omni-kubeconfig-linux-amd64 dist/omni-kubeconfig-linux-arm64
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v4
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Docker metadata
-        id: meta
-        uses: docker/metadata-action@v6
-        with:
-          images: ${{ env.IMAGE }}
-          tags: |
-            type=semver,pattern={{version}},enable=${{ needs.goreleaser.outputs.is_snapshot == 'false' }}
-            type=semver,pattern={{major}}.{{minor}},enable=${{ needs.goreleaser.outputs.is_snapshot == 'false' }}
-            type=raw,value=latest,enable=${{ needs.goreleaser.outputs.is_snapshot == 'false' }}
-            type=raw,value=${{ needs.goreleaser.outputs.release_tag }},enable=${{ needs.goreleaser.outputs.is_snapshot == 'true' }}
-
-      - name: Build and push to GHCR
-        id: build
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          provenance: mode=max
-          sbom: true
-
-      - name: Scan Dockerfile (misconfigurations)
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          scan-type: config
-          scan-ref: Dockerfile
-          severity: CRITICAL,HIGH
-          exit-code: 1
-
-      - name: Scan container image
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
-          format: table
-          severity: CRITICAL,HIGH
-          exit-code: 1
-          ignore-unfixed: true
-
-      - name: Prepare dist
-        run: mkdir -p dist
-
-      - name: Generate container SBOM (CycloneDX)
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
-          format: cyclonedx
-          output: dist/sbom-image.cyclonedx.json
-
-      - name: Verify container SBOM
-        run: test -s dist/sbom-image.cyclonedx.json
-
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@v4.1.2
-
       - name: Sign image (keyless)
         env:
           COSIGN_EXPERIMENTAL: 1
         run: |
-          cosign sign --yes "${{ env.IMAGE }}@${{ steps.build.outputs.digest }}"
+          cosign sign --yes "${{ env.IMAGE }}@${{ steps.digest.outputs.digest }}"
 
       - name: Attach SBOM attestation
         env:
           COSIGN_EXPERIMENTAL: 1
         run: |
           cosign attach sbom --sbom dist/sbom-image.cyclonedx.json \
-            "${{ env.IMAGE }}@${{ steps.build.outputs.digest }}"
+            "${{ env.IMAGE }}@${{ steps.digest.outputs.digest }}"
 
       - name: Sign container SBOM blob
         env:

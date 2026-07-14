@@ -71,7 +71,7 @@ See [Usage](#usage) and [Reference](#reference) below for all flags.
 
 ## Run with Docker
 
-Container images are published to [GitHub Container Registry](https://github.com/Jubblin/omni-kubeconfig/pkgs/container/omni-kubeconfig) as `ghcr.io/jubblin/omni-kubeconfig` on every push to `main` (snapshot) and on `v*` release tags. [docker.yml](.github/workflows/docker.yml) builds the image on PRs but does not publish it.
+Container images are published to [GitHub Container Registry](https://github.com/Jubblin/omni-kubeconfig/pkgs/container/omni-kubeconfig) as `ghcr.io/jubblin/omni-kubeconfig` on every push to `main` (snapshot) and on `vX.Y.Z` release tags. GoReleaser `dockers_v2` builds and pushes multi-arch manifests. [docker.yml](.github/workflows/docker.yml) only lints the Dockerfile when it changes.
 
 The image contains only the `omni-kubeconfig` binary (distroless, no shell). Mount your host Omni credentials and kube output directory; run `kubectl` on the host against the merged file.
 
@@ -82,7 +82,7 @@ The image contains only the `omni-kubeconfig` binary (distroless, no shell). Mou
 | `v0.1.1-snapshot` | Latest build from `main` (suffix from most recent `v*` tag) |
 | `latest` | Most recent release |
 | `0.1.2` | Exact semver (no `v` prefix) |
-| `0.1`, `0` | Major/minor aliases |
+| `0.1` | Major.minor alias on release |
 
 ```bash
 # After merging to main (latest tag v0.1.1)
@@ -223,9 +223,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
-| [ci.yml](.github/workflows/ci.yml) | Push/PR to `main` | Test, vet, lint, cross-compile, Go module SBOM (`cyclonedx-gomod`), Trivy dependency scan |
-| [docker.yml](.github/workflows/docker.yml) | Push/PR to `main` | Hadolint → stage linux/amd64 binary → build image → Trivy scan + image SBOM |
-| [release.yml](.github/workflows/release.yml) | Push to `main`, tag `v*` | GoReleaser binaries + module SBOM; Docker image → GHCR (`v*-snapshot` on `main`, semver + `latest` on tags), Trivy, Cosign |
+| [ci.yml](.github/workflows/ci.yml) | Push/PR to `main` | Test, vet, lint, GoReleaser snapshot build (`--skip=publish`), Go module SBOM, Trivy FS scan; on `main` calls Release |
+| [docker.yml](.github/workflows/docker.yml) | Dockerfile path changes | Hadolint + Dockerfile Trivy config scan |
+| [release.yml](.github/workflows/release.yml) | CI success on `main`; tag `vX.Y.Z` | GoReleaser binaries + GH release + GHCR (`dockers_v2`), Trivy image scan, Cosign |
 
 [Dependabot](.github/dependabot.yml) updates Go modules and GitHub Actions weekly.
 
@@ -237,7 +237,7 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
-GoReleaser publishes bare binaries (naming matches `omnictl-*`) for darwin/linux amd64+arm64 and windows amd64 only. The container image is built from the GoReleaser linux binaries after that job completes. See [.goreleaser.yaml](.goreleaser.yaml).
+GoReleaser publishes bare binaries (naming matches `omnictl-*`) for darwin/linux amd64+arm64 and windows amd64 only, and builds/pushes the multi-arch container image via `dockers_v2`. See [.goreleaser.yaml](.goreleaser.yaml).
 
 Versioning follows [Semantic Versioning](https://semver.org/) — see [CHANGELOG.md](CHANGELOG.md).
 
