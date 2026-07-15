@@ -98,8 +98,9 @@ update). Use --merge-existing=false to replace the file with only the clusters s
 On name conflicts, incoming cluster/context/user entries overwrite existing ones by default.
 Use --rename-on-conflict to keep both (incoming renamed to name-1, name-2, …).
 
-By default, current-context is left unchanged. Use --activate-context to set current-context to
-the last cluster merged this run.
+By default, current-context is left unchanged when already set. An empty current-context
+(fresh file or --merge-existing=false) is still activated on first merge. Use --activate-context
+to always set current-context to the last cluster merged this run.
 
 Existing output files are backed up to <path>.bak.<timestamp> before writing (both modes).
 Merged kubeconfigs use kubectl oidc-login; run kubectl against the output file after sync.
@@ -109,7 +110,7 @@ Flags:
   -c, --cluster strings       Sync only these cluster names (repeatable; default: all clusters)
       --merge-existing        Load existing output and merge new downloads (default: true)
       --rename-on-conflict    Rename conflicting entries instead of overwriting
-      --activate-context      Set current-context to the last merged cluster (default: false)
+      --activate-context      Set current-context to the last merged cluster; empty current-context still activates (default: false)
       --grant-type string     OIDC grant type in downloaded kubeconfigs: auto, authcode, authcode-keyboard
       --dry-run               List clusters that would be synced; do not download or write
       --print-export          Print "export KUBECONFIG=..." when -o is not the default path (default: true)
@@ -156,7 +157,7 @@ Global flags: --omniconfig, --context, --insecure-skip-tls-verify, --siderov1-ke
 	syncCmd.Flags().BoolVar(&renameOnConflict, "rename-on-conflict", false,
 		"on merge conflict, rename incoming cluster/context/user instead of overwriting")
 	syncCmd.Flags().BoolVar(&activateContext, "activate-context", false,
-		"set current-context to the last cluster merged this run; default preserves existing current-context")
+		"set current-context to the last cluster merged this run; default preserves existing (activates when current-context is empty)")
 	syncCmd.Flags().StringVar(&grantType, "grant-type", "auto",
 		"OIDC grant type embedded in downloaded kubeconfigs (auto, authcode, authcode-keyboard)")
 	syncCmd.Flags().BoolVar(&dryRun, "dry-run", false,
