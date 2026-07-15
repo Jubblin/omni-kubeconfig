@@ -346,26 +346,7 @@ func TestWriteMergedKubeconfigNoPrintExport(t *testing.T) {
 	}
 }
 
-func TestMergeKubeconfigForceOverwrite(t *testing.T) {
-	conflictB := strings.ReplaceAll(kubeconfigB, "cluster-b", "cluster-a")
-	conflictB = strings.ReplaceAll(conflictB, "user-b", "user-a")
-	conflictB = strings.ReplaceAll(conflictB, "token-b", "token-conflict")
-
-	merger := clientcmdapi.NewConfig()
-	if err := mergeKubeconfig(merger, []byte(kubeconfigA), false); err != nil {
-		t.Fatal(err)
-	}
-	if err := mergeKubeconfig(merger, []byte(conflictB), true); err != nil {
-		t.Fatal(err)
-	}
-
-	user := merger.AuthInfos["user-a"]
-	if user == nil || user.Token != "token-conflict" {
-		t.Fatalf("force merge should overwrite user-a token, got %#v", user)
-	}
-}
-
-func TestMergeKubeconfigWithoutForceKeepsOriginalOnConflict(t *testing.T) {
+func TestMergeKubeconfigDefaultOverwritesOnConflict(t *testing.T) {
 	conflictB := strings.ReplaceAll(kubeconfigB, "cluster-b", "cluster-a")
 	conflictB = strings.ReplaceAll(conflictB, "user-b", "user-a")
 	conflictB = strings.ReplaceAll(conflictB, "token-b", "token-conflict")
@@ -379,8 +360,31 @@ func TestMergeKubeconfigWithoutForceKeepsOriginalOnConflict(t *testing.T) {
 	}
 
 	user := merger.AuthInfos["user-a"]
+	if user == nil || user.Token != "token-conflict" {
+		t.Fatalf("default merge should overwrite user-a token, got %#v", user)
+	}
+}
+
+func TestMergeKubeconfigRenameOnConflictKeepsOriginal(t *testing.T) {
+	conflictB := strings.ReplaceAll(kubeconfigB, "cluster-b", "cluster-a")
+	conflictB = strings.ReplaceAll(conflictB, "user-b", "user-a")
+	conflictB = strings.ReplaceAll(conflictB, "token-b", "token-conflict")
+
+	merger := clientcmdapi.NewConfig()
+	if err := mergeKubeconfig(merger, []byte(kubeconfigA), false); err != nil {
+		t.Fatal(err)
+	}
+	if err := mergeKubeconfig(merger, []byte(conflictB), true); err != nil {
+		t.Fatal(err)
+	}
+
+	user := merger.AuthInfos["user-a"]
 	if user == nil || user.Token != "token-a" {
-		t.Fatalf("without force, original user-a token should be kept, got %#v", user)
+		t.Fatalf("rename-on-conflict should keep original user-a token, got %#v", user)
+	}
+	renamed := merger.AuthInfos["user-a-1"]
+	if renamed == nil || renamed.Token != "token-conflict" {
+		t.Fatalf("rename-on-conflict should store incoming at user-a-1, got %#v", renamed)
 	}
 }
 

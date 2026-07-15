@@ -13,6 +13,7 @@ Download admin kubeconfigs for every cluster on a [Sidero Omni](https://docs.sid
 - **`auth`** — SideroV1 PGP + browser login (same flow as `omnictl`)
 - **`sync`** — List all Omni clusters, download kubeconfigs, merge into one file
 - Incremental merge into existing output by default (`--merge-existing`); full replace with `--merge-existing=false`
+- Name conflicts overwrite by default; `--rename-on-conflict` keeps both (incoming → `name-1`)
 - Backups existing output as `*.bak.<timestamp>` before overwrite
 - Omni API v2 compatible
 
@@ -310,7 +311,7 @@ Run the same commands inside the published image; mount `~/.talos` and `~/.kube`
 | `-o`, `--output` | `~/.kube/config` | Merged kubeconfig path |
 | `-c`, `--cluster` | all | Sync only these clusters (repeatable) |
 | `--merge-existing` | `true` | Load existing output and merge; `false` replaces with clusters synced this run |
-| `--force` | `false` | Overwrite merge conflicts instead of renaming |
+| `--rename-on-conflict` | `false` | Rename conflicting entries instead of overwriting (default overwrites) |
 | `--grant-type` | `auto` | OIDC grant: `auto`, `authcode`, `authcode-keyboard` |
 | `--dry-run` | `false` | List clusters only |
 | `--print-export` | `true` | Print `export KUBECONFIG=...` when `-o` is not `~/.kube/config` |
@@ -330,7 +331,8 @@ Run the same commands inside the published image; mount `~/.talos` and `~/.kube`
 ```bash
 BROWSER=echo omni-kubeconfig auth
 omni-kubeconfig sync --dry-run
-omni-kubeconfig sync -o ~/.kube/omni-prod -c prod -c staging --force
+omni-kubeconfig sync -o ~/.kube/omni-prod -c prod -c staging
+omni-kubeconfig sync --rename-on-conflict      # keep both on name clash (incoming → name-1)
 omni-kubeconfig sync --merge-existing=false   # drop contexts from prior syncs not in this run
 omni-kubeconfig sync --grant-type authcode-keyboard
 ```

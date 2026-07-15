@@ -27,10 +27,11 @@ Default-path sync should not print export — kubectl already reads `~/.kube/con
 
 Logic lives in `shouldPrintKubeconfigExport` (`cmd/omni-kubeconfig/main.go`).
 
-## Merge behaviour (unchanged)
+## Merge behaviour
 
 - `--merge-existing=true` (default): incremental merge into existing output
 - `--merge-existing=false`: replace file with clusters synced this run
+- Name conflicts: **overwrite** by default; `--rename-on-conflict` keeps both (incoming → `name-1`, …)
 - Existing file backed up to `<path>.bak.<timestamp>` before write
 
 ## Docs
