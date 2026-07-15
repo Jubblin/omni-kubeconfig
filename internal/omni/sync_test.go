@@ -56,10 +56,10 @@ users:
 func TestMergeKubeconfigCombinesClusters(t *testing.T) {
 	merger := clientcmdapi.NewConfig()
 
-	if err := mergeKubeconfig(merger, []byte(kubeconfigA), false); err != nil {
+	if err := mergeKubeconfig(merger, []byte(kubeconfigA), false, false); err != nil {
 		t.Fatalf("merge A: %v", err)
 	}
-	if err := mergeKubeconfig(merger, []byte(kubeconfigB), false); err != nil {
+	if err := mergeKubeconfig(merger, []byte(kubeconfigB), false, false); err != nil {
 		t.Fatalf("merge B: %v", err)
 	}
 
@@ -310,7 +310,7 @@ func TestWriteMergedKubeconfigPrintExport(t *testing.T) {
 	path := filepath.Join(dir, "merged")
 
 	merger := clientcmdapi.NewConfig()
-	if err := mergeKubeconfig(merger, []byte(kubeconfigA), false); err != nil {
+	if err := mergeKubeconfig(merger, []byte(kubeconfigA), false, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -334,7 +334,7 @@ func TestWriteMergedKubeconfigNoPrintExport(t *testing.T) {
 	path := filepath.Join(dir, "merged")
 
 	merger := clientcmdapi.NewConfig()
-	if err := mergeKubeconfig(merger, []byte(kubeconfigA), false); err != nil {
+	if err := mergeKubeconfig(merger, []byte(kubeconfigA), false, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -352,10 +352,10 @@ func TestMergeKubeconfigDefaultOverwritesOnConflict(t *testing.T) {
 	conflictB = strings.ReplaceAll(conflictB, "token-b", "token-conflict")
 
 	merger := clientcmdapi.NewConfig()
-	if err := mergeKubeconfig(merger, []byte(kubeconfigA), false); err != nil {
+	if err := mergeKubeconfig(merger, []byte(kubeconfigA), false, false); err != nil {
 		t.Fatal(err)
 	}
-	if err := mergeKubeconfig(merger, []byte(conflictB), false); err != nil {
+	if err := mergeKubeconfig(merger, []byte(conflictB), false, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -371,10 +371,10 @@ func TestMergeKubeconfigRenameOnConflictKeepsOriginal(t *testing.T) {
 	conflictB = strings.ReplaceAll(conflictB, "token-b", "token-conflict")
 
 	merger := clientcmdapi.NewConfig()
-	if err := mergeKubeconfig(merger, []byte(kubeconfigA), false); err != nil {
+	if err := mergeKubeconfig(merger, []byte(kubeconfigA), false, false); err != nil {
 		t.Fatal(err)
 	}
-	if err := mergeKubeconfig(merger, []byte(conflictB), true); err != nil {
+	if err := mergeKubeconfig(merger, []byte(conflictB), true, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -429,15 +429,53 @@ func captureWriter(t *testing.T, stream **os.File, fn func() error) string {
 	return buf.String()
 }
 
+func TestMergeKubeconfigPreservesCurrentContextByDefault(t *testing.T) {
+	merger := clientcmdapi.NewConfig()
+	merger.CurrentContext = "daily-driver"
+
+	if err := mergeKubeconfig(merger, []byte(kubeconfigA), false, false); err != nil {
+		t.Fatalf("merge A: %v", err)
+	}
+	if err := mergeKubeconfig(merger, []byte(kubeconfigB), false, false); err != nil {
+		t.Fatalf("merge B: %v", err)
+	}
+
+	if merger.CurrentContext != "daily-driver" {
+		t.Fatalf("CurrentContext = %q, want daily-driver preserved", merger.CurrentContext)
+	}
+	if merger.Contexts["cluster-a"] == nil || merger.Contexts["cluster-b"] == nil {
+		t.Fatal("expected both contexts merged")
+	}
+}
+
+func TestMergeKubeconfigActivateContextSetsLastMerged(t *testing.T) {
+	merger := clientcmdapi.NewConfig()
+	merger.CurrentContext = "daily-driver"
+
+	if err := mergeKubeconfig(merger, []byte(kubeconfigA), false, true); err != nil {
+		t.Fatalf("merge A: %v", err)
+	}
+	if merger.CurrentContext != "cluster-a" {
+		t.Fatalf("after A CurrentContext = %q, want cluster-a", merger.CurrentContext)
+	}
+
+	if err := mergeKubeconfig(merger, []byte(kubeconfigB), false, true); err != nil {
+		t.Fatalf("merge B: %v", err)
+	}
+	if merger.CurrentContext != "cluster-b" {
+		t.Fatalf("after B CurrentContext = %q, want cluster-b", merger.CurrentContext)
+	}
+}
+
 func TestWriteMergedRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "merged")
 
 	merger := clientcmdapi.NewConfig()
-	if err := mergeKubeconfig(merger, []byte(kubeconfigA), false); err != nil {
+	if err := mergeKubeconfig(merger, []byte(kubeconfigA), false, false); err != nil {
 		t.Fatal(err)
 	}
-	if err := mergeKubeconfig(merger, []byte(kubeconfigB), false); err != nil {
+	if err := mergeKubeconfig(merger, []byte(kubeconfigB), false, false); err != nil {
 		t.Fatal(err)
 	}
 

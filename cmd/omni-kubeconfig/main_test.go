@@ -110,3 +110,19 @@ func TestSyncCommandDefaultOutputFlag(t *testing.T) {
 		t.Fatalf("output flag default = %q, want %q", flag.DefValue, want)
 	}
 }
+
+func TestSyncCommandActivateContextDefaultFalse(t *testing.T) {
+	cmd := newRootCmd()
+	syncCmd, _, err := cmd.Find([]string{"sync"})
+	if err != nil {
+		t.Fatalf("Find sync: %v", err)
+	}
+
+	flag := syncCmd.Flags().Lookup("activate-context")
+	if flag == nil {
+		t.Fatal("activate-context flag not found")
+	}
+	if flag.DefValue != "false" {
+		t.Fatalf("activate-context default = %q, want false", flag.DefValue)
+	}
+}

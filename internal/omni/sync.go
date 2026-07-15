@@ -27,6 +27,7 @@ type SyncOptions struct {
 	OutputPath       string
 	Clusters         []string
 	RenameOnConflict bool // when true, rename conflicting entries; when false (default), overwrite
+	ActivateContext  bool // when true, set current-context to last merged cluster; when false (default), preserve
 	GrantType        string
 	DryRun           bool
 	PrintExport      bool
@@ -122,7 +123,7 @@ func fetchAndMergeKubeconfigs(
 			continue
 		}
 
-		if mergeErr := mergeKubeconfig(merger, data, opts.RenameOnConflict); mergeErr != nil {
+		if mergeErr := mergeKubeconfig(merger, data, opts.RenameOnConflict, opts.ActivateContext); mergeErr != nil {
 			return 0, fmt.Errorf("merge kubeconfig for %q: %w", name, mergeErr)
 		}
 
@@ -255,7 +256,7 @@ func loadOrNewMerger(path string) (*clientcmdapi.Config, error) {
 	return (*clientcmdapi.Config)(loaded), nil
 }
 
-func mergeKubeconfig(merger *clientcmdapi.Config, data []byte, renameOnConflict bool) error {
+func mergeKubeconfig(merger *clientcmdapi.Config, data []byte, renameOnConflict, activateContext bool) error {
 	cfg, err := clientcmd.Load(data)
 	if err != nil {
 		return err
@@ -264,7 +265,7 @@ func mergeKubeconfig(merger *clientcmdapi.Config, data []byte, renameOnConflict 
 	m := (*kubeconfig.Merger)(merger)
 
 	return m.Merge(cfg, kubeconfig.MergeOptions{
-		ActivateContext: true,
+		ActivateContext: activateContext,
 		OutputWriter:    io.Discard,
 		ConflictHandler: func(_ kubeconfig.ConfigComponent, _ string) (kubeconfig.ConflictDecision, error) {
 			if renameOnConflict {
