@@ -90,6 +90,7 @@ jobs:
 
       # Real release (not --snapshot) so dockers_v2 can push multi-arch manifests.
       # Snapshot path force-tags v*-snapshot above; tag pushes use the pushed semver tag.
+      # dockers_v2 pushes only sha-<commit>; mutable tags are promoted after Trivy below.
       - name: GoReleaser
         uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7
         with:
@@ -98,16 +99,16 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_CURRENT_TAG: ${{ steps.release.outputs.tag }}
+          # CI already ran go test; skip duplicate in before hooks (tag pushes still test).
+          SKIP_BEFORE_TEST: ${{ github.event_name == 'workflow_call' && '1' || '0' }}
 
       - name: Resolve image digest
         id: digest
-        env:
-          IMAGE_TAG: ${{ steps.release.outputs.image_tag }}
         run: |
-          DIGEST="$(docker buildx imagetools inspect "${{ env.IMAGE }}:${IMAGE_TAG}" --format '{{println .Manifest.Digest}}')"
+          DIGEST="$(docker buildx imagetools inspect "${{ env.IMAGE }}:sha-${GITHUB_SHA}" --format '{{println .Manifest.Digest}}')"
           test -n "${DIGEST}"
           echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
-          echo "Resolved ${{ env.IMAGE }}:${IMAGE_TAG}@${DIGEST}"
+          echo "Resolved ${{ env.IMAGE }}:sha-${GITHUB_SHA}@${DIGEST}"
 
       - name: Scan container image
         uses: aquasecurity/trivy-action@v0.36.0
@@ -117,6 +118,22 @@ jobs:
           severity: CRITICAL,HIGH
           exit-code: 1
           ignore-unfixed: true
+
+      # Promote mutable tags only after Trivy passes (P5 scan-before-mutable-tag).
+      - name: Promote image tags
+        env:
+          IMAGE_TAG: ${{ steps.release.outputs.image_tag }}
+          IS_SNAPSHOT: ${{ steps.release.outputs.snapshot }}
+          DIGEST: ${{ steps.digest.outputs.digest }}
+        run: |
+          SOURCE="${{ env.IMAGE }}@${DIGEST}"
+          TAGS=("-t" "${{ env.IMAGE }}:${IMAGE_TAG}")
+          if [[ "${IS_SNAPSHOT}" != "true" ]]; then
+            MAJOR_MINOR="$(echo "${IMAGE_TAG}" | cut -d. -f1,2)"
+            TAGS+=("-t" "${{ env.IMAGE }}:${MAJOR_MINOR}" "-t" "${{ env.IMAGE }}:latest")
+          fi
+          docker buildx imagetools create "${TAGS[@]}" "${SOURCE}"
+          echo "Promoted ${SOURCE} -> ${TAGS[*]}"
 
       - name: Generate container SBOM (CycloneDX)
         uses: aquasecurity/trivy-action@v0.36.0

@@ -5,12 +5,12 @@ name: Docker
 #   - release.yml: release --clean (publishes multi-arch manifests to GHCR)
 on:
   push:
-    branches: [main, master]
+    branches: [main]
     paths:
       - Dockerfile
       - .github/workflows/docker.yml
   pull_request:
-    branches: [main, master]
+    branches: [main]
     paths:
       - Dockerfile
       - .github/workflows/docker.yml

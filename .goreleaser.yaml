@@ -3,6 +3,8 @@
 # (no windows/arm64 — same as upstream Dockerfile omnictl-* targets)
 #
 # Container images are built/pushed via dockers_v2 (buildx multi-arch manifests).
+# Only an immutable sha-<commit> tag is pushed here; release.yml Trivy-scans that
+# digest, then promotes mutable tags (semver / latest / v*-snapshot).
 
 version: 2
 
@@ -15,7 +17,9 @@ snapshot:
 before:
   hooks:
     - go mod download
-    - go test -buildvcs=false ./...
+    # SKIP_BEFORE_TEST=1 when Release is workflow_call'd from CI (tests already ran).
+    # Tag pushes and local goreleaser runs still execute go test.
+    - sh -c 'if [ "${SKIP_BEFORE_TEST:-}" = "1" ]; then echo "skipping go test (SKIP_BEFORE_TEST=1)"; else go test -buildvcs=false ./...; fi'
     - go install github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@v1.10.0
 
 builds:
@@ -69,12 +73,9 @@ dockers_v2:
     dockerfile: Dockerfile
     images:
       - ghcr.io/jubblin/omni-kubeconfig
-    # Snapshot/prerelease (v*-snapshot): Tag only.
-    # Full release: Version (no v), major.minor, latest.
+    # Immutable tag only — mutable release tags are applied in release.yml after Trivy.
     tags:
-      - "{{ if .Prerelease }}{{ .Tag }}{{ else }}{{ .Version }}{{ end }}"
-      - "{{ if not .Prerelease }}{{ .Major }}.{{ .Minor }}{{ end }}"
-      - "{{ if not .Prerelease }}latest{{ end }}"
+      - "sha-{{ .FullCommit }}"
     platforms:
       - linux/amd64
       - linux/arm64
