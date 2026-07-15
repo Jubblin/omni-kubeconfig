@@ -49,6 +49,7 @@ docker pull ghcr.io/jubblin/omni-kubeconfig:latest
 - Snapshot vs release tagging is driven by `is_snapshot` / `release_tag` / `image_tag` job outputs — do not hardcode version strings in the workflow.
 - Tag trigger must be `v[0-9]+.[0-9]+.[0-9]+` so `v*-snapshot` force-pushes do not re-enter Release as a full release.
 - Mutable image tags must never be updated before a successful Trivy image scan of the digest.
+- Trivy steps that run before GoReleaser must set `cache-dir` outside the workspace (e.g. `${{ runner.temp }}/trivy-cache`); the action default is `${{ github.workspace }}/.cache/trivy` and will dirty the git tree.
 
 ## Tests in release path
 
