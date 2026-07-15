@@ -14,7 +14,7 @@ Download admin kubeconfigs for every cluster on a [Sidero Omni](https://docs.sid
 - **`sync`** — List all Omni clusters, download kubeconfigs, merge into one file
 - Incremental merge into existing output by default (`--merge-existing`); full replace with `--merge-existing=false`
 - Name conflicts overwrite by default; `--rename-on-conflict` keeps both (incoming → `name-1`)
-- Preserves existing `current-context` by default; `--activate-context` sets it to the last merged cluster
+- Preserves existing `current-context` by default (cold starts / empty `current-context` still get one); `--activate-context` sets it to the last merged cluster
 - Backups existing output as `*.bak.<timestamp>` before overwrite
 - Omni API v2 compatible
 
@@ -314,7 +314,7 @@ Run the same commands inside the published image; mount `~/.talos` and `~/.kube`
 | `-c`, `--cluster` | all | Sync only these clusters (repeatable) |
 | `--merge-existing` | `true` | Load existing output and merge; `false` replaces with clusters synced this run |
 | `--rename-on-conflict` | `false` | Rename conflicting entries instead of overwriting (default overwrites) |
-| `--activate-context` | `false` | Set `current-context` to the last cluster merged; default preserves existing |
+| `--activate-context` | `false` | Set `current-context` to the last cluster merged; default preserves existing (activates on empty/`--merge-existing=false` cold start) |
 | `--grant-type` | `auto` | OIDC grant: `auto`, `authcode`, `authcode-keyboard` |
 | `--dry-run` | `false` | List clusters only |
 | `--print-export` | `true` | Print `export KUBECONFIG=...` when `-o` is not `~/.kube/config` |

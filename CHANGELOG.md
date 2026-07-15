@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - `sync` merge conflicts now **overwrite** by default; use `--rename-on-conflict` to rename incoming entries instead (replaces sync `--force`)
-- `sync` no longer changes `current-context` unless `--activate-context` is set
+- `sync` no longer changes `current-context` unless `--activate-context` is set (except cold start / empty `current-context`, which still activates)
 
 ## [0.1.0] - 2026-06-04
 

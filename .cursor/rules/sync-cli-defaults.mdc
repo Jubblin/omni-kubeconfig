@@ -32,7 +32,7 @@ Logic lives in `shouldPrintKubeconfigExport` (`cmd/omni-kubeconfig/main.go`).
 - `--merge-existing=true` (default): incremental merge into existing output
 - `--merge-existing=false`: replace file with clusters synced this run
 - Name conflicts: **overwrite** by default; `--rename-on-conflict` keeps both (incoming → `name-1`, …)
-- `current-context`: **preserved** by default; `--activate-context` sets it to the last cluster merged
+- `current-context`: **preserved** by default when already set; empty/`--merge-existing=false` cold starts activate the first merged context; `--activate-context` always sets it to the last cluster merged
 - Existing file backed up to `<path>.bak.<timestamp>` before write
 
 ## Docs
