@@ -4,7 +4,7 @@ on:
   workflow_call:
   push:
     tags:
-      # Semver releases only — exclude v*-snapshot (published via workflow_call from CI).
+      # Semver releases only — exclude v*-snapshot.N (published via workflow_call from CI).
       - "v[0-9]+.[0-9]+.[0-9]+"
 
 permissions: {}
@@ -41,22 +41,27 @@ jobs:
       - name: Set release metadata
         id: release
         run: |
+          set -euo pipefail
           if [[ "${GITHUB_REF}" == refs/tags/v[0-9]* ]]; then
             TAG="${GITHUB_REF#refs/tags/}"
             echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
             echo "snapshot=false" >> "$GITHUB_OUTPUT"
             # GHCR release tags use Version without leading v (e.g. 0.1.2).
             echo "image_tag=${TAG#v}" >> "$GITHUB_OUTPUT"
+            echo "floating_snapshot_tag=" >> "$GITHUB_OUTPUT"
           else
-            # Use semver release tags only; snapshot releases create v*-snapshot git tags
-            # that git describe would pick up and double-append -snapshot.
+            # Semver release tags only — ignore v*-snapshot(.N) so we never double-append.
             LATEST_TAG="$(git tag -l 'v*' --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)"
             LATEST_TAG="${LATEST_TAG:-v0.0.0}"
-            TAG="${LATEST_TAG}-snapshot"
+            # Unique immutable tags: v0.2.0-snapshot.1, .2, … (scripts/next-snapshot-tag.sh).
+            TAG="$(bash scripts/next-snapshot-tag.sh "${LATEST_TAG}")"
             echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
             echo "snapshot=true" >> "$GITHUB_OUTPUT"
-            # Snapshot GHCR tag keeps the leading v (e.g. v0.1.1-snapshot).
+            # Snapshot GHCR keeps leading v (e.g. v0.2.0-snapshot.3).
             echo "image_tag=${TAG}" >> "$GITHUB_OUTPUT"
+            # Floating alias for "latest on this line" after Trivy.
+            echo "floating_snapshot_tag=${LATEST_TAG}-snapshot" >> "$GITHUB_OUTPUT"
+            echo "Snapshot release: ${TAG} (line ${LATEST_TAG})"
           fi
 
       - name: Create snapshot tag for GoReleaser
@@ -64,8 +69,16 @@ jobs:
         env:
           TAG: ${{ steps.release.outputs.tag }}
         run: |
-          git tag -f "${TAG}" "${GITHUB_SHA}"
-          git push origin "refs/tags/${TAG}" --force
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+            echo "::error::Tag ${TAG} already exists; refusing to overwrite"
+            exit 1
+          fi
+          git tag "${TAG}" "${GITHUB_SHA}"
+          git push origin "refs/tags/${TAG}"
+          echo "Created immutable snapshot tag ${TAG} -> ${GITHUB_SHA}"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4
@@ -93,7 +106,7 @@ jobs:
           cache-dir: ${{ runner.temp }}/trivy-cache
 
       # Real release (not --snapshot) so dockers_v2 can push multi-arch manifests.
-      # Snapshot path force-tags v*-snapshot above; tag pushes use the pushed semver tag.
+      # Snapshot path creates immutable v*-snapshot.N tags above; semver tag pushes use the tag.
       # dockers_v2 pushes only sha-<commit>; mutable tags are promoted after Trivy below.
       - name: GoReleaser
         uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7
@@ -129,11 +142,18 @@ jobs:
         env:
           IMAGE_TAG: ${{ steps.release.outputs.image_tag }}
           IS_SNAPSHOT: ${{ steps.release.outputs.snapshot }}
+          FLOATING_SNAPSHOT_TAG: ${{ steps.release.outputs.floating_snapshot_tag }}
           DIGEST: ${{ steps.digest.outputs.digest }}
         run: |
+          set -euo pipefail
           SOURCE="${{ env.IMAGE }}@${DIGEST}"
           TAGS=("-t" "${{ env.IMAGE }}:${IMAGE_TAG}")
-          if [[ "${IS_SNAPSHOT}" != "true" ]]; then
+          if [[ "${IS_SNAPSHOT}" == "true" ]]; then
+            # Numbered tag plus floating alias for the release line (e.g. v0.2.0-snapshot).
+            if [[ -n "${FLOATING_SNAPSHOT_TAG}" ]]; then
+              TAGS+=("-t" "${{ env.IMAGE }}:${FLOATING_SNAPSHOT_TAG}")
+            fi
+          else
             MAJOR_MINOR="$(echo "${IMAGE_TAG}" | cut -d. -f1,2)"
             TAGS+=("-t" "${{ env.IMAGE }}:${MAJOR_MINOR}" "-t" "${{ env.IMAGE }}:latest")
           fi

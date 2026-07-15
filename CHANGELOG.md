@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Snapshot tags are now immutable and numbered (`vX.Y.Z-snapshot.N`); GHCR still promotes floating `vX.Y.Z-snapshot` after Trivy
+
 ## [0.2.0] - 2026-07-15
 
 ### Added

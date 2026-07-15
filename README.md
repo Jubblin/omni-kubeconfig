@@ -81,15 +81,17 @@ The image contains only the `omni-kubeconfig` binary (distroless, no shell). Mou
 
 | Tag | When |
 |-----|------|
-| `v0.1.1-snapshot` | Latest build from `main` (suffix from most recent `v*` tag), after Trivy |
+| `v0.2.0-snapshot` | Floating latest from `main` for the current release line (after Trivy) |
+| `v0.2.0-snapshot.N` | Immutable numbered snapshot for a specific `main` build (after Trivy) |
 | `latest` | Most recent release (after Trivy) |
 | `0.1.2` | Exact semver (no `v` prefix), after Trivy |
 | `0.1` | Major.minor alias on release |
 | `sha-<commit>` | Immutable digest pointer (pushed before scan; safe if scan fails) |
 
 ```bash
-# After merging to main (latest tag v0.1.1)
-docker pull ghcr.io/jubblin/omni-kubeconfig:v0.1.1-snapshot
+# After merging to main (release line v0.2.0)
+docker pull ghcr.io/jubblin/omni-kubeconfig:v0.2.0-snapshot
+docker pull ghcr.io/jubblin/omni-kubeconfig:v0.2.0-snapshot.3
 
 # After tagging v0.1.2
 docker pull ghcr.io/jubblin/omni-kubeconfig:0.1.2

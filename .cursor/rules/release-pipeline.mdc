@@ -18,17 +18,19 @@ Do not change CI checks/workflows just to make failures pass. Fix the code or co
 ## Push to `main` (snapshot)
 
 - **CI** runs on the push (unless only markdown / `.cursor` / `docs` paths changed); **Release** runs after test, lint, GoReleaser snapshot build, and Trivy succeed (not on PR runs).
-- Release force-updates git tag `<latest-v-tag>-snapshot` (e.g. `v0.1.1-snapshot`) and runs `goreleaser release --clean` (not `--snapshot`) so `dockers_v2` can push multi-arch manifests.
-- `GORELEASER_CURRENT_TAG` set to that snapshot tag; `SKIP_BEFORE_TEST=1` skips GoReleaser `before` `go test` (CI already tested).
-- GitHub prerelease + module SBOM via GoReleaser (`release.prerelease: auto`, `replace_existing_artifacts`)
+- Release creates an **immutable** git tag `<latest-vX.Y.Z>-snapshot.<N>` (e.g. `v0.2.0-snapshot.1`, then `.2`, …) via `scripts/next-snapshot-tag.sh` — never force-pushed.
+- Runs `goreleaser release --clean` (not `--snapshot`) so `dockers_v2` can push multi-arch manifests.
+- `GORELEASER_CURRENT_TAG` set to that numbered snapshot tag; `SKIP_BEFORE_TEST=1` skips GoReleaser `before` `go test` (CI already tested).
+- GitHub prerelease + module SBOM via GoReleaser (`release.prerelease: auto`)
 - GHCR publish order (scan-before-mutable-tag):
   1. GoReleaser pushes immutable `ghcr.io/jubblin/omni-kubeconfig:sha-<commit>`
   2. Trivy scans that digest (`CRITICAL`/`HIGH`, `exit-code: 1`)
-  3. Only then promote `v0.1.1-snapshot` (snapshot) or semver + `major.minor` + `latest` (full release)
+  3. Only then promote `v0.2.0-snapshot.N` **and** floating `v0.2.0-snapshot` (snapshot) or semver + `major.minor` + `latest` (full release)
 - Cosign + container SBOM after promote; Dockerfile config scan before GoReleaser
 
 ```bash
-docker pull ghcr.io/jubblin/omni-kubeconfig:v0.1.1-snapshot
+docker pull ghcr.io/jubblin/omni-kubeconfig:v0.2.0-snapshot      # floating latest on line
+docker pull ghcr.io/jubblin/omni-kubeconfig:v0.2.0-snapshot.3    # specific build
 ```
 
 ## Tag `vX.Y.Z` push (release)
@@ -47,7 +49,7 @@ docker pull ghcr.io/jubblin/omni-kubeconfig:latest
 - Keep job-level `permissions` scoped per job (`permissions: {}` at workflow level).
 - GoReleaser owns binary build and GHCR push in one job (QEMU + Buildx + GHCR login before `release --clean`).
 - Snapshot vs release tagging is driven by `is_snapshot` / `release_tag` / `image_tag` job outputs — do not hardcode version strings in the workflow.
-- Tag trigger must be `v[0-9]+.[0-9]+.[0-9]+` so `v*-snapshot` force-pushes do not re-enter Release as a full release.
+- Tag trigger must be `v[0-9]+.[0-9]+.[0-9]+` so `v*-snapshot.N` tags do not re-enter Release as a full release.
 - Mutable image tags must never be updated before a successful Trivy image scan of the digest.
 - Trivy steps that run before GoReleaser must set `cache-dir` outside the workspace (e.g. `${{ runner.temp }}/trivy-cache`); the action default is `${{ github.workspace }}/.cache/trivy` and will dirty the git tree.
 
