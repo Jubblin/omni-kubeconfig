@@ -79,6 +79,7 @@ Global flags apply to all commands (see --help on auth or sync for command-speci
 		output           string
 		clusters         []string
 		renameOnConflict bool
+		activateContext  bool
 		grantType        string
 		dryRun           bool
 		printExport      bool
@@ -97,6 +98,9 @@ update). Use --merge-existing=false to replace the file with only the clusters s
 On name conflicts, incoming cluster/context/user entries overwrite existing ones by default.
 Use --rename-on-conflict to keep both (incoming renamed to name-1, name-2, …).
 
+By default, current-context is left unchanged. Use --activate-context to set current-context to
+the last cluster merged this run.
+
 Existing output files are backed up to <path>.bak.<timestamp> before writing (both modes).
 Merged kubeconfigs use kubectl oidc-login; run kubectl against the output file after sync.
 
@@ -105,6 +109,7 @@ Flags:
   -c, --cluster strings       Sync only these cluster names (repeatable; default: all clusters)
       --merge-existing        Load existing output and merge new downloads (default: true)
       --rename-on-conflict    Rename conflicting entries instead of overwriting
+      --activate-context      Set current-context to the last merged cluster (default: false)
       --grant-type string     OIDC grant type in downloaded kubeconfigs: auto, authcode, authcode-keyboard
       --dry-run               List clusters that would be synced; do not download or write
       --print-export          Print "export KUBECONFIG=..." when -o is not the default path (default: true)
@@ -114,6 +119,7 @@ Global flags: --omniconfig, --context, --insecure-skip-tls-verify, --siderov1-ke
   omni-kubeconfig sync --dry-run
   omni-kubeconfig sync -o ~/.kube/omni-prod -c prod -c staging
   omni-kubeconfig sync --rename-on-conflict
+  omni-kubeconfig sync --activate-context
   omni-kubeconfig sync --merge-existing=false`,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			resolvedOutput, err := resolveOutputPath(output)
@@ -131,6 +137,7 @@ Global flags: --omniconfig, --context, --insecure-skip-tls-verify, --siderov1-ke
 				OutputPath:       resolvedOutput,
 				Clusters:         clusters,
 				RenameOnConflict: renameOnConflict,
+				ActivateContext:  activateContext,
 				GrantType:        grantType,
 				DryRun:           dryRun,
 				PrintExport:      printKubeconfigExport,
@@ -148,6 +155,8 @@ Global flags: --omniconfig, --context, --insecure-skip-tls-verify, --siderov1-ke
 		"load existing output file and merge new downloads; false replaces file with clusters synced this run")
 	syncCmd.Flags().BoolVar(&renameOnConflict, "rename-on-conflict", false,
 		"on merge conflict, rename incoming cluster/context/user instead of overwriting")
+	syncCmd.Flags().BoolVar(&activateContext, "activate-context", false,
+		"set current-context to the last cluster merged this run; default preserves existing current-context")
 	syncCmd.Flags().StringVar(&grantType, "grant-type", "auto",
 		"OIDC grant type embedded in downloaded kubeconfigs (auto, authcode, authcode-keyboard)")
 	syncCmd.Flags().BoolVar(&dryRun, "dry-run", false,

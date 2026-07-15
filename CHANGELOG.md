@@ -7,9 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `sync --activate-context` opt-in to set kubeconfig `current-context` to the last merged cluster (default preserves existing)
+
 ### Changed
 
 - `sync` merge conflicts now **overwrite** by default; use `--rename-on-conflict` to rename incoming entries instead (replaces sync `--force`)
+- `sync` no longer changes `current-context` unless `--activate-context` is set
 
 ## [0.1.0] - 2026-06-04
 
