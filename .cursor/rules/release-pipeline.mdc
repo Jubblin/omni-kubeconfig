@@ -45,6 +45,7 @@ docker pull ghcr.io/jubblin/omni-kubeconfig:latest
 - GoReleaser owns binary build and GHCR push in one job (QEMU + Buildx + GHCR login before `release --clean`).
 - Snapshot vs release tagging is driven by `is_snapshot` / `release_tag` / `image_tag` job outputs — do not hardcode version strings in the workflow.
 - Tag trigger must be `v[0-9]+.[0-9]+.[0-9]+` so `v*-snapshot` force-pushes do not re-enter Release as a full release.
+- Trivy steps that run before GoReleaser must set `cache-dir` outside the workspace (e.g. `${{ runner.temp }}/trivy-cache`); the action default is `${{ github.workspace }}/.cache/trivy` and will dirty the git tree.
 
 ## Tests in release path
 
