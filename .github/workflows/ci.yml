@@ -2,9 +2,17 @@ name: CI
 
 on:
   push:
-    branches: [main, master]
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - ".cursor/**"
+      - "docs/**"
   pull_request:
-    branches: [main, master]
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - ".cursor/**"
+      - "docs/**"
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -71,39 +79,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  sbom:
-    name: SBOM
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      actions: write
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
-          cache: true
-
-      - name: Generate CycloneDX SBOM (Go modules)
-        run: make sbom
-
-      - name: Verify SBOM artifact
-        run: test -s dist/sbom.cyclonedx.json
-
-      - name: Upload SBOM
-        uses: actions/upload-artifact@v7
-        with:
-          name: sbom-cyclonedx
-          path: dist/sbom.cyclonedx.json
-          if-no-files-found: error
-
   trivy:
     name: Trivy
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      actions: write
     steps:
       - uses: actions/checkout@v7
 
@@ -116,23 +96,6 @@ jobs:
           severity: CRITICAL,HIGH
           exit-code: 1
           ignore-unfixed: true
-
-      - name: Prepare dist
-        run: mkdir -p dist
-
-      - name: Generate filesystem SBOM (CycloneDX)
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          scan-type: fs
-          scan-ref: .
-          format: cyclonedx
-          output: dist/sbom-fs.cyclonedx.json
-
-      - name: Upload filesystem SBOM
-        uses: actions/upload-artifact@v7
-        with:
-          name: sbom-fs-cyclonedx
-          path: dist/sbom-fs.cyclonedx.json
 
   lint:
     name: Lint
@@ -155,8 +118,8 @@ jobs:
 
   release:
     name: Release (snapshot)
-    needs: [test, lint, goreleaser, sbom, trivy]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    needs: [test, lint, goreleaser, trivy]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     uses: ./.github/workflows/release.yml
     permissions:
       contents: write

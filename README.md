@@ -72,7 +72,7 @@ See [Usage](#usage) and [Reference](#reference) below for all flags.
 
 ## Run with Docker
 
-Container images are published to [GitHub Container Registry](https://github.com/Jubblin/omni-kubeconfig/pkgs/container/omni-kubeconfig) as `ghcr.io/jubblin/omni-kubeconfig` on every push to `main` (snapshot) and on `vX.Y.Z` release tags. GoReleaser `dockers_v2` builds and pushes multi-arch manifests. [docker.yml](.github/workflows/docker.yml) only lints the Dockerfile when it changes.
+Container images are published to [GitHub Container Registry](https://github.com/Jubblin/omni-kubeconfig/pkgs/container/omni-kubeconfig) as `ghcr.io/jubblin/omni-kubeconfig` on every push to `main` (snapshot) and on `vX.Y.Z` release tags. GoReleaser `dockers_v2` pushes an immutable `sha-<commit>` tag first; Trivy scans that digest, then mutable tags are promoted. [docker.yml](.github/workflows/docker.yml) only lints the Dockerfile when it changes.
 
 The image contains only the `omni-kubeconfig` binary (distroless, no shell). Mount your host Omni credentials and kube output directory; run `kubectl` on the host against the merged file.
 
@@ -80,10 +80,11 @@ The image contains only the `omni-kubeconfig` binary (distroless, no shell). Mou
 
 | Tag | When |
 |-----|------|
-| `v0.1.1-snapshot` | Latest build from `main` (suffix from most recent `v*` tag) |
-| `latest` | Most recent release |
-| `0.1.2` | Exact semver (no `v` prefix) |
+| `v0.1.1-snapshot` | Latest build from `main` (suffix from most recent `v*` tag), after Trivy |
+| `latest` | Most recent release (after Trivy) |
+| `0.1.2` | Exact semver (no `v` prefix), after Trivy |
 | `0.1` | Major.minor alias on release |
+| `sha-<commit>` | Immutable digest pointer (pushed before scan; safe if scan fails) |
 
 ```bash
 # After merging to main (latest tag v0.1.1)
@@ -224,9 +225,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
-| [ci.yml](.github/workflows/ci.yml) | Push/PR to `main` | Test, vet, lint, GoReleaser snapshot build (`--skip=publish`), Go module SBOM, Trivy FS scan; on `main` calls Release |
+| [ci.yml](.github/workflows/ci.yml) | Push/PR to `main` (skips docs / `.cursor`-only) | Test, vet, lint, GoReleaser snapshot build (`--skip=publish`), Trivy FS vuln scan; on `main` calls Release |
 | [docker.yml](.github/workflows/docker.yml) | Dockerfile path changes | Hadolint + Dockerfile Trivy config scan |
-| [release.yml](.github/workflows/release.yml) | CI success on `main`; tag `vX.Y.Z` | GoReleaser binaries + GH release + GHCR (`dockers_v2`), Trivy image scan, Cosign |
+| [release.yml](.github/workflows/release.yml) | CI success on `main`; tag `vX.Y.Z` | GoReleaser binaries + GH release + GHCR (`sha-` then promote after Trivy), Cosign |
 
 [Dependabot](.github/dependabot.yml) updates Go modules and GitHub Actions weekly.
 
@@ -385,9 +386,8 @@ Omni and Sidero Labs are trademarks of [Sidero Labs, Inc.](https://www.siderolab
 
 | Artifact | Generator | When |
 |----------|-----------|------|
-| `sbom.cyclonedx.json` | [cyclonedx-gomod](https://github.com/CycloneDX/cyclonedx-gomod) | Go modules (CI + release) |
-| `sbom-fs.cyclonedx.json` | [Trivy](https://trivy.dev/) filesystem scan | CI |
-| `sbom-image.cyclonedx.json` | Trivy image scan | [docker.yml](.github/workflows/docker.yml) (CI), [release.yml](.github/workflows/release.yml) (releases) |
+| `sbom.cyclonedx.json` | [cyclonedx-gomod](https://github.com/CycloneDX/cyclonedx-gomod) via GoReleaser | Releases (source of truth); local `make sbom` |
+| `sbom-image.cyclonedx.json` | [Trivy](https://trivy.dev/) image scan | [release.yml](.github/workflows/release.yml) after GHCR publish |
 
 **Locally:**
 
@@ -397,9 +397,9 @@ make hadolint
 make docker-build && make trivy-image   # dist/sbom-image.cyclonedx.json
 ```
 
-**CI:** [ci.yml](.github/workflows/ci.yml) generates and uploads the module SBOM; Trivy scans dependencies (`CRITICAL`/`HIGH`, unfixed ignored). [docker.yml](.github/workflows/docker.yml) runs Hadolint, builds the image, Trivy-scans the Dockerfile and image, and uploads `sbom-image-cyclonedx`.
+**CI:** [ci.yml](.github/workflows/ci.yml) runs Trivy filesystem vuln scan (`CRITICAL`/`HIGH`, unfixed ignored). Module SBOM is not uploaded as a CI artifact — GoReleaser owns it on release. [docker.yml](.github/workflows/docker.yml) runs Hadolint and Dockerfile config scan when the Dockerfile changes.
 
-**Releases:** GoReleaser attaches `sbom.cyclonedx.json` to [GitHub Releases](https://github.com/Jubblin/omni-kubeconfig/releases). [release.yml](.github/workflows/release.yml) Cosign-signs that SBOM bundle, then builds the Docker image from the release binaries, pushes to `ghcr.io/jubblin/omni-kubeconfig`, and keyless-signs the image plus container SBOM with [Sigstore Cosign](https://docs.sigstore.dev/).
+**Releases:** GoReleaser attaches `sbom.cyclonedx.json` to [GitHub Releases](https://github.com/Jubblin/omni-kubeconfig/releases). [release.yml](.github/workflows/release.yml) Cosign-signs that SBOM bundle, pushes `ghcr.io/jubblin/omni-kubeconfig:sha-<commit>`, Trivy-scans the digest, promotes mutable tags only after a clean scan, then keyless-signs the image plus container SBOM with [Sigstore Cosign](https://docs.sigstore.dev/).
 
 ## Security
 

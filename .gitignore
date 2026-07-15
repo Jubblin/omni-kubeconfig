@@ -59,6 +59,9 @@ omni-merged-config
 .goreleaser-cache/
 .goreleaser.yaml.bak
 
+# Trivy default cache (${github.workspace}/.cache/trivy); CI overrides to $RUNNER_TEMP
+.cache/
+
 # Misc
 *.log
 /tmp/

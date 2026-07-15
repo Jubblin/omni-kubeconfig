@@ -9,7 +9,7 @@ alwaysApply: true
 
 | Workflow | Trigger | Publishes? |
 |----------|---------|------------|
-| `ci.yml` | Push/PR to `main` | No — test, lint, GoReleaser snapshot build (`--skip=publish`), SBOM, Trivy |
+| `ci.yml` | Push/PR to `main` (skips docs/`.cursor`-only via `paths-ignore`) | No — test, lint, GoReleaser snapshot build (`--skip=publish`), Trivy FS vuln scan |
 | `docker.yml` | Dockerfile path changes | No — Hadolint + Dockerfile Trivy config scan |
 | `release.yml` | CI success on push to `main` (`workflow_call`); tag `vX.Y.Z` push | Yes — GoReleaser binaries, GH release, GHCR via `dockers_v2` |
 
@@ -17,12 +17,15 @@ Do not change CI checks/workflows just to make failures pass. Fix the code or co
 
 ## Push to `main` (snapshot)
 
-- **CI** runs on the push; **Release** runs after test, lint, GoReleaser snapshot build, SBOM, and Trivy succeed (not on PR runs).
+- **CI** runs on the push (unless only markdown / `.cursor` / `docs` paths changed); **Release** runs after test, lint, GoReleaser snapshot build, and Trivy succeed (not on PR runs).
 - Release force-updates git tag `<latest-v-tag>-snapshot` (e.g. `v0.1.1-snapshot`) and runs `goreleaser release --clean` (not `--snapshot`) so `dockers_v2` can push multi-arch manifests.
-- `GORELEASER_CURRENT_TAG` set to that snapshot tag
+- `GORELEASER_CURRENT_TAG` set to that snapshot tag; `SKIP_BEFORE_TEST=1` skips GoReleaser `before` `go test` (CI already tested).
 - GitHub prerelease + module SBOM via GoReleaser (`release.prerelease: auto`, `replace_existing_artifacts`)
-- Docker GHCR tag: `ghcr.io/jubblin/omni-kubeconfig:v0.1.1-snapshot` only — **not** `latest` or bare semver
-- Cosign + container SBOM after publish; Dockerfile config scan before GoReleaser
+- GHCR publish order (scan-before-mutable-tag):
+  1. GoReleaser pushes immutable `ghcr.io/jubblin/omni-kubeconfig:sha-<commit>`
+  2. Trivy scans that digest (`CRITICAL`/`HIGH`, `exit-code: 1`)
+  3. Only then promote `v0.1.1-snapshot` (snapshot) or semver + `major.minor` + `latest` (full release)
+- Cosign + container SBOM after promote; Dockerfile config scan before GoReleaser
 
 ```bash
 docker pull ghcr.io/jubblin/omni-kubeconfig:v0.1.1-snapshot
@@ -30,8 +33,8 @@ docker pull ghcr.io/jubblin/omni-kubeconfig:v0.1.1-snapshot
 
 ## Tag `vX.Y.Z` push (release)
 
-- GoReleaser: `release --clean`
-- Docker GHCR tags: semver (`0.1.2`) + `major.minor` + `latest`
+- GoReleaser: `release --clean` (runs `go test` in `before` hooks — not skipped)
+- Docker GHCR: push `sha-<commit>`, Trivy scan, then promote semver (`0.1.2`) + `major.minor` + `latest`
 - Full release assets + signed SBOM bundle
 
 ```bash
@@ -45,7 +48,17 @@ docker pull ghcr.io/jubblin/omni-kubeconfig:latest
 - GoReleaser owns binary build and GHCR push in one job (QEMU + Buildx + GHCR login before `release --clean`).
 - Snapshot vs release tagging is driven by `is_snapshot` / `release_tag` / `image_tag` job outputs — do not hardcode version strings in the workflow.
 - Tag trigger must be `v[0-9]+.[0-9]+.[0-9]+` so `v*-snapshot` force-pushes do not re-enter Release as a full release.
+- Mutable image tags must never be updated before a successful Trivy image scan of the digest.
+- Trivy steps that run before GoReleaser must set `cache-dir` outside the workspace (e.g. `${{ runner.temp }}/trivy-cache`); the action default is `${{ github.workspace }}/.cache/trivy` and will dirty the git tree.
 
 ## Tests in release path
 
-GoReleaser `before` hooks run `go test -buildvcs=false ./...` on every release and snapshot build. Add unit tests for release-related logic (path resolution, tagging helpers) rather than relying on manual Omni credentials in CI.
+GoReleaser `before` hooks run `go test -buildvcs=false ./...` unless `SKIP_BEFORE_TEST=1` (set on CI `workflow_call` only). Tag pushes and local runs always test. Add unit tests for release-related logic (path resolution, tagging helpers) rather than relying on manual Omni credentials in CI.
+
+## SBOM sources of truth
+
+| Artifact | Owner |
+|----------|--------|
+| Module `sbom.cyclonedx.json` | GoReleaser (`sboms`); local `make sbom` |
+| Image `sbom-image.cyclonedx.json` | `release.yml` Trivy after publish |
+| CI | Trivy FS **vuln** scan only — no overlapping SBOM artifact uploads |
