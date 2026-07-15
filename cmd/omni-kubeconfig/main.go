@@ -77,12 +77,12 @@ Global flags apply to all commands (see --help on auth or sync for command-speci
 
 	var (
 		output        string
-		clusters      []string
-		force         bool
-		grantType     string
-		dryRun        bool
-		printExport   bool
-		mergeExisting bool
+		clusters          []string
+		renameOnConflict  bool
+		grantType         string
+		dryRun            bool
+		printExport       bool
+		mergeExisting     bool
 	)
 
 	syncCmd := &cobra.Command{
@@ -94,6 +94,9 @@ admin kubeconfig, and merges them into a single file.
 By default, an existing output file is loaded and new downloads are merged into it (incremental
 update). Use --merge-existing=false to replace the file with only the clusters synced this run.
 
+On name conflicts, incoming cluster/context/user entries overwrite existing ones by default.
+Use --rename-on-conflict to keep both (incoming renamed to name-1, name-2, …).
+
 Existing output files are backed up to <path>.bak.<timestamp> before writing (both modes).
 Merged kubeconfigs use kubectl oidc-login; run kubectl against the output file after sync.
 
@@ -101,7 +104,7 @@ Flags:
   -o, --output string         Path for the merged kubeconfig (default: ~/.kube/config)
   -c, --cluster strings       Sync only these cluster names (repeatable; default: all clusters)
       --merge-existing        Load existing output and merge new downloads (default: true)
-      --force                 Overwrite conflicting cluster/context/user entries on merge
+      --rename-on-conflict    Rename conflicting entries instead of overwriting
       --grant-type string     OIDC grant type in downloaded kubeconfigs: auto, authcode, authcode-keyboard
       --dry-run               List clusters that would be synced; do not download or write
       --print-export          Print "export KUBECONFIG=..." when -o is not the default path (default: true)
@@ -109,7 +112,8 @@ Flags:
 Global flags: --omniconfig, --context, --insecure-skip-tls-verify, --siderov1-keys-dir`,
 		Example: `  omni-kubeconfig sync
   omni-kubeconfig sync --dry-run
-  omni-kubeconfig sync -o ~/.kube/omni-prod -c prod -c staging --force
+  omni-kubeconfig sync -o ~/.kube/omni-prod -c prod -c staging
+  omni-kubeconfig sync --rename-on-conflict
   omni-kubeconfig sync --merge-existing=false`,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			resolvedOutput, err := resolveOutputPath(output)
@@ -123,14 +127,14 @@ Global flags: --omniconfig, --context, --insecure-skip-tls-verify, --siderov1-ke
 			}
 
 			return omni.Sync(omni.SyncOptions{
-				ClientOptions: clientOpts(),
-				OutputPath:    resolvedOutput,
-				Clusters:      clusters,
-				Force:         force,
-				GrantType:     grantType,
-				DryRun:        dryRun,
-				PrintExport:   printKubeconfigExport,
-				MergeExisting: mergeExisting,
+				ClientOptions:    clientOpts(),
+				OutputPath:       resolvedOutput,
+				Clusters:         clusters,
+				RenameOnConflict: renameOnConflict,
+				GrantType:        grantType,
+				DryRun:           dryRun,
+				PrintExport:      printKubeconfigExport,
+				MergeExisting:    mergeExisting,
 			})
 		},
 	}
@@ -142,8 +146,8 @@ Global flags: --omniconfig, --context, --insecure-skip-tls-verify, --siderov1-ke
 		"only sync these Omni cluster names (repeat flag for multiple; default: all)")
 	syncCmd.Flags().BoolVar(&mergeExisting, "merge-existing", true,
 		"load existing output file and merge new downloads; false replaces file with clusters synced this run")
-	syncCmd.Flags().BoolVar(&force, "force", false,
-		"on merge conflict, overwrite existing cluster/context/user instead of renaming")
+	syncCmd.Flags().BoolVar(&renameOnConflict, "rename-on-conflict", false,
+		"on merge conflict, rename incoming cluster/context/user instead of overwriting")
 	syncCmd.Flags().StringVar(&grantType, "grant-type", "auto",
 		"OIDC grant type embedded in downloaded kubeconfigs (auto, authcode, authcode-keyboard)")
 	syncCmd.Flags().BoolVar(&dryRun, "dry-run", false,

@@ -26,11 +26,11 @@ type SyncOptions struct {
 	ClientOptions
 	OutputPath    string
 	Clusters      []string
-	Force         bool
-	GrantType     string
-	DryRun        bool
-	PrintExport   bool
-	MergeExisting bool // when true, load existing output and merge; when false, replace with this run only
+	RenameOnConflict bool // when true, rename conflicting entries; when false (default), overwrite
+	GrantType        string
+	DryRun           bool
+	PrintExport      bool
+	MergeExisting    bool // when true, load existing output and merge; when false, replace with this run only
 }
 
 // Sync downloads kubeconfigs for all (or filtered) clusters and merges them.
@@ -122,7 +122,7 @@ func fetchAndMergeKubeconfigs(
 			continue
 		}
 
-		if mergeErr := mergeKubeconfig(merger, data, opts.Force); mergeErr != nil {
+		if mergeErr := mergeKubeconfig(merger, data, opts.RenameOnConflict); mergeErr != nil {
 			return 0, fmt.Errorf("merge kubeconfig for %q: %w", name, mergeErr)
 		}
 
@@ -255,7 +255,7 @@ func loadOrNewMerger(path string) (*clientcmdapi.Config, error) {
 	return (*clientcmdapi.Config)(loaded), nil
 }
 
-func mergeKubeconfig(merger *clientcmdapi.Config, data []byte, force bool) error {
+func mergeKubeconfig(merger *clientcmdapi.Config, data []byte, renameOnConflict bool) error {
 	cfg, err := clientcmd.Load(data)
 	if err != nil {
 		return err
@@ -267,10 +267,10 @@ func mergeKubeconfig(merger *clientcmdapi.Config, data []byte, force bool) error
 		ActivateContext: true,
 		OutputWriter:    io.Discard,
 		ConflictHandler: func(_ kubeconfig.ConfigComponent, _ string) (kubeconfig.ConflictDecision, error) {
-			if force {
-				return kubeconfig.OverwriteDecision, nil
+			if renameOnConflict {
+				return kubeconfig.RenameDecision, nil
 			}
-			return kubeconfig.RenameDecision, nil
+			return kubeconfig.OverwriteDecision, nil
 		},
 	})
 }
