@@ -76,13 +76,13 @@ Global flags apply to all commands (see --help on auth or sync for command-speci
 	}
 
 	var (
-		output        string
-		clusters          []string
-		renameOnConflict  bool
-		grantType         string
-		dryRun            bool
-		printExport       bool
-		mergeExisting     bool
+		output           string
+		clusters         []string
+		renameOnConflict bool
+		grantType        string
+		dryRun           bool
+		printExport      bool
+		mergeExisting    bool
 	)
 
 	syncCmd := &cobra.Command{

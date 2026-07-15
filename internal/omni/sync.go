@@ -24,8 +24,8 @@ import (
 // SyncOptions controls kubeconfig download and merge.
 type SyncOptions struct {
 	ClientOptions
-	OutputPath    string
-	Clusters      []string
+	OutputPath       string
+	Clusters         []string
 	RenameOnConflict bool // when true, rename conflicting entries; when false (default), overwrite
 	GrantType        string
 	DryRun           bool
