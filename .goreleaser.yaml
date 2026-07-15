@@ -4,14 +4,14 @@
 #
 # Container images are built/pushed via dockers_v2 (buildx multi-arch manifests).
 # Only an immutable sha-<commit> tag is pushed here; release.yml Trivy-scans that
-# digest, then promotes mutable tags (semver / latest / v*-snapshot).
+# digest, then promotes mutable tags (semver / latest / v*-snapshot[.N]).
 
 version: 2
 
 project_name: omni-kubeconfig
 
 snapshot:
-  # Tag is already v*-snapshot from the workflow; avoid appending -snapshot twice.
+  # Tag is already v*-snapshot.N from the workflow; avoid appending -snapshot twice.
   version_template: "{{ .Tag }}"
 
 before:
