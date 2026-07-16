@@ -27,7 +27,7 @@ type SyncOptions struct {
 	OutputPath       string
 	Clusters         []string
 	RenameOnConflict bool // when true, rename conflicting entries; when false (default), overwrite
-	ActivateContext  bool // when true, set current-context to last merged cluster; when false (default), preserve existing (still activates on empty current-context)
+	ActivateContext  bool // when true, set current-context to last merged; when false (default), preserve if set
 	GrantType        string
 	DryRun           bool
 	PrintExport      bool
@@ -265,8 +265,6 @@ func mergeKubeconfig(merger *clientcmdapi.Config, data []byte, opts SyncOptions)
 	m := (*kubeconfig.Merger)(merger)
 
 	return m.Merge(cfg, kubeconfig.MergeOptions{
-		// Cold start / empty current-context: activate even when the CLI flag is false so
-		// fresh and --merge-existing=false outputs are usable with kubectl.
 		ActivateContext: opts.ActivateContext || merger.CurrentContext == "",
 		OutputWriter:    io.Discard,
 		ConflictHandler: func(_ kubeconfig.ConfigComponent, _ string) (kubeconfig.ConflictDecision, error) {
