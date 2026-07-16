@@ -10,7 +10,7 @@ require (
 	github.com/siderolabs/omni/client v1.9.1
 	github.com/spf13/cobra v1.10.2
 	go.uber.org/zap v1.28.0
-	google.golang.org/grpc v1.82.0
+	google.golang.org/grpc v1.82.1
 	k8s.io/client-go v0.36.2
 )
 
