@@ -58,24 +58,19 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
-
       - name: Validate GoReleaser config
         uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7
         with:
           version: "~> v2"
           args: check
 
-      # Builds all release binaries + local snapshot images (no push / no GH release).
-      - name: GoReleaser build (snapshot, skip publish)
+      # Validate binary/archive/SBOM path only. Skip docker: multi-arch dockers_v2 is
+      # exercised on Release (main/tag). Avoids duplicate QEMU+Buildx wall-clock tax.
+      - name: GoReleaser build (snapshot, skip publish+docker)
         uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7
         with:
           version: "~> v2"
-          args: release --snapshot --clean --skip=publish
+          args: release --snapshot --clean --skip=publish,docker
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

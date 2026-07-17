@@ -1,8 +1,8 @@
 name: Docker
 
-# Dockerfile lint only. Image build/push is owned by GoReleaser:
-#   - CI: release --snapshot --skip=publish (validates dockers_v2)
-#   - release.yml: release --clean (publishes multi-arch manifests to GHCR)
+# Dockerfile lint only. Image build/push is owned by GoReleaser in release.yml
+# (release --clean publishes multi-arch manifests to GHCR). CI validates GoReleaser
+# binaries with --skip=publish,docker; dockers_v2 is exercised on Release only.
 on:
   push:
     branches: [main]

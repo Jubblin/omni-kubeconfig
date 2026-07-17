@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Snapshot tags are now immutable and numbered (`vX.Y.Z-snapshot.N`); GHCR still promotes floating `vX.Y.Z-snapshot` after Trivy
+- CI GoReleaser job skips Docker (`--skip=publish,docker`); multi-arch `dockers_v2` runs on Release only
 
 ## [0.2.0] - 2026-07-15
 
