@@ -9,6 +9,12 @@ on:
 
 permissions: {}
 
+# Serialize publishes per ref. Do not cancel in-progress runs — mid-publish cancel
+# can leave an immutable snapshot tag without a completed promote/attest.
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
   REGISTRY: ghcr.io
   IMAGE: ghcr.io/jubblin/omni-kubeconfig
