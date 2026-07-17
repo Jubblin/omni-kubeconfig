@@ -20,24 +20,21 @@ env:
   IMAGE: ghcr.io/jubblin/omni-kubeconfig
 
 jobs:
-  goreleaser:
-    name: GoReleaser
+  # Phase 1: compute tag metadata + create immutable snapshot git tags.
+  meta:
+    name: Meta
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      packages: write
-      id-token: write
-      actions: write
-      attestations: write
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      snapshot: ${{ steps.release.outputs.snapshot }}
+      image_tag: ${{ steps.release.outputs.image_tag }}
+      floating_snapshot_tag: ${{ steps.release.outputs.floating_snapshot_tag }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-          cache: true
 
       - name: Set release metadata
         id: release
@@ -48,20 +45,15 @@ jobs:
             TAG="${BASH_REMATCH[1]}"
             echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
             echo "snapshot=false" >> "$GITHUB_OUTPUT"
-            # GHCR release tags use Version without leading v (e.g. 0.1.2).
             echo "image_tag=${TAG#v}" >> "$GITHUB_OUTPUT"
             echo "floating_snapshot_tag=" >> "$GITHUB_OUTPUT"
           else
-            # Semver release tags only — ignore v*-snapshot(.N) so we never double-append.
             LATEST_TAG="$(git tag -l 'v*' --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)"
             LATEST_TAG="${LATEST_TAG:-v0.0.0}"
-            # Unique immutable tags: v0.2.0-snapshot.1, .2, … (scripts/next-snapshot-tag.sh).
             TAG="$(bash scripts/next-snapshot-tag.sh "${LATEST_TAG}")"
             echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
             echo "snapshot=true" >> "$GITHUB_OUTPUT"
-            # Snapshot GHCR keeps leading v (e.g. v0.2.0-snapshot.3).
             echo "image_tag=${TAG}" >> "$GITHUB_OUTPUT"
-            # Floating alias for "latest on this line" after Trivy.
             echo "floating_snapshot_tag=${LATEST_TAG}-snapshot" >> "$GITHUB_OUTPUT"
             echo "Snapshot release: ${TAG} (line ${LATEST_TAG})"
           fi
@@ -82,6 +74,28 @@ jobs:
           git push origin "refs/tags/${TAG}"
           echo "Created immutable snapshot tag ${TAG} -> ${GITHUB_SHA}"
 
+  # Phase 2: GoReleaser publish (immutable sha-<commit> image + GH release assets).
+  publish:
+    name: Publish
+    needs: [meta]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    outputs:
+      digest: ${{ steps.digest.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          # meta may have just pushed a new snapshot tag — check out that ref.
+          ref: ${{ needs.meta.outputs.tag }}
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4
 
@@ -95,10 +109,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Dockerfile config scan lives in docker.yml (Dockerfile path changes only).
-      # Image Trivy below still uses cache-dir outside the workspace so trivy-action
-      # does not dirty the tree (default ${{ github.workspace }}/.cache/trivy).
-
       # Tag pushes: CI did not gate this run — test before publish.
       # workflow_call from CI already ran make test.
       - name: Test (tag pushes)
@@ -106,8 +116,7 @@ jobs:
         run: go test -buildvcs=false ./...
 
       # Real release (not --snapshot) so dockers_v2 can push multi-arch manifests.
-      # Snapshot path creates immutable v*-snapshot.N tags above; semver tag pushes use the tag.
-      # dockers_v2 pushes only sha-<commit>; mutable tags are promoted after Trivy below.
+      # dockers_v2 pushes only sha-<commit>; mutable tags are promoted after Trivy.
       - name: GoReleaser
         uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7
         with:
@@ -115,7 +124,7 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GORELEASER_CURRENT_TAG: ${{ steps.release.outputs.tag }}
+          GORELEASER_CURRENT_TAG: ${{ needs.meta.outputs.tag }}
 
       - name: Resolve image digest
         id: digest
@@ -125,29 +134,68 @@ jobs:
           echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
           echo "Resolved ${{ env.IMAGE }}:sha-${GITHUB_SHA}@${DIGEST}"
 
+      - name: Upload module SBOM for attest
+        uses: actions/upload-artifact@v7
+        with:
+          name: module-sbom
+          path: dist/sbom.cyclonedx.json
+          if-no-files-found: error
+
+  # Phase 3: Trivy image scan — gates mutable tag promotion.
+  scan:
+    name: Scan
+    needs: [publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Scan container image
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: ${{ env.IMAGE }}@${{ steps.digest.outputs.digest }}
+          image-ref: ${{ env.IMAGE }}@${{ needs.publish.outputs.digest }}
           format: table
           severity: CRITICAL,HIGH
           exit-code: 1
           ignore-unfixed: true
           cache-dir: ${{ runner.temp }}/trivy-cache
 
-      # Promote mutable tags only after Trivy passes (P5 scan-before-mutable-tag).
+  # Phase 4: promote mutable GHCR tags only after scan passes.
+  promote:
+    name: Promote
+    needs: [meta, publish, scan]
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Promote image tags
         env:
-          IMAGE_TAG: ${{ steps.release.outputs.image_tag }}
-          IS_SNAPSHOT: ${{ steps.release.outputs.snapshot }}
-          FLOATING_SNAPSHOT_TAG: ${{ steps.release.outputs.floating_snapshot_tag }}
-          DIGEST: ${{ steps.digest.outputs.digest }}
+          IMAGE_TAG: ${{ needs.meta.outputs.image_tag }}
+          IS_SNAPSHOT: ${{ needs.meta.outputs.snapshot }}
+          FLOATING_SNAPSHOT_TAG: ${{ needs.meta.outputs.floating_snapshot_tag }}
+          DIGEST: ${{ needs.publish.outputs.digest }}
         run: |
           set -euo pipefail
           SOURCE="${{ env.IMAGE }}@${DIGEST}"
           TAGS=("-t" "${{ env.IMAGE }}:${IMAGE_TAG}")
           if [[ "${IS_SNAPSHOT}" == "true" ]]; then
-            # Numbered tag plus floating alias for the release line (e.g. v0.2.0-snapshot).
             if [[ -z "${FLOATING_SNAPSHOT_TAG}" ]]; then
               echo "::error::floating_snapshot_tag empty on snapshot path"
               exit 1
@@ -160,10 +208,37 @@ jobs:
           docker buildx imagetools create "${TAGS[@]}" "${SOURCE}"
           echo "Promoted ${SOURCE} -> ${TAGS[*]}"
 
+  # Phase 5: Cosign + SBOM attest after promote.
+  attest:
+    name: Attest
+    needs: [meta, publish, promote]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      actions: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Download module SBOM
+        uses: actions/download-artifact@v7
+        with:
+          name: module-sbom
+          path: dist
+
+      - name: Log in to GHCR
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Generate container SBOM (CycloneDX)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: ${{ env.IMAGE }}@${{ steps.digest.outputs.digest }}
+          image-ref: ${{ env.IMAGE }}@${{ needs.publish.outputs.digest }}
           format: cyclonedx
           output: dist/sbom-image.cyclonedx.json
           cache-dir: ${{ runner.temp }}/trivy-cache
@@ -176,8 +251,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           bash scripts/release-attest.sh \
-            "${{ env.IMAGE }}@${{ steps.digest.outputs.digest }}" \
-            "${{ steps.release.outputs.tag }}"
+            "${{ env.IMAGE }}@${{ needs.publish.outputs.digest }}" \
+            "${{ needs.meta.outputs.tag }}"
 
       - name: Upload signed container SBOM artifacts
         uses: actions/upload-artifact@v7
