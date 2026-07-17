@@ -71,6 +71,7 @@ install:
 test:
 	go test $(GOFLAGS) ./...
 	bash scripts/next-snapshot-tag_test.sh
+	bash scripts/release-attest_test.sh
 
 lint:
 	golangci-lint run ./...
