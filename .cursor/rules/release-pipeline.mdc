@@ -20,7 +20,7 @@ Do not change CI checks/workflows just to make failures pass. Fix the code or co
 - **CI** runs on the push (unless only markdown / `.cursor` / `docs` paths changed); **Release** runs after test, lint, GoReleaser snapshot build (`--skip=publish,docker`), and Trivy succeed (not on PR runs). Multi-arch `dockers_v2` is validated on Release, not duplicated in CI.
 - Release creates an **immutable** git tag `<latest-vX.Y.Z>-snapshot.<N>` (e.g. `v0.2.0-snapshot.1`, then `.2`, …) via `scripts/next-snapshot-tag.sh` — never force-pushed.
 - Runs `goreleaser release --clean` (not `--snapshot`) so `dockers_v2` can push multi-arch manifests.
-- `GORELEASER_CURRENT_TAG` set to that numbered snapshot tag; `SKIP_BEFORE_TEST=1` skips GoReleaser `before` `go test` (CI already tested).
+- `GORELEASER_CURRENT_TAG` set to that numbered snapshot tag; GoReleaser no longer runs `go test` in `before` (CI already tested; tag pushes run an explicit Test step in `release.yml`).
 - GitHub prerelease + module SBOM via GoReleaser (`release.prerelease: auto`)
 - GHCR publish order (scan-before-mutable-tag):
   1. GoReleaser pushes immutable `ghcr.io/jubblin/omni-kubeconfig:sha-<commit>`
@@ -55,7 +55,7 @@ docker pull ghcr.io/jubblin/omni-kubeconfig:latest
 
 ## Tests in release path
 
-GoReleaser `before` hooks run `go test -buildvcs=false ./...` unless `SKIP_BEFORE_TEST=1` (set on CI `workflow_call` only). Tag pushes and local runs always test. Add unit tests for release-related logic (path resolution, tagging helpers) rather than relying on manual Omni credentials in CI.
+CI runs `make test` before calling Release. Tag-triggered `release.yml` runs `go test` as an explicit step (not in GoReleaser `before`). Add unit tests for release-related logic (path resolution, tagging helpers) rather than relying on manual Omni credentials in CI.
 
 ## SBOM sources of truth
 

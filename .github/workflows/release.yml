@@ -99,6 +99,12 @@ jobs:
       # Image Trivy below still uses cache-dir outside the workspace so trivy-action
       # does not dirty the tree (default ${{ github.workspace }}/.cache/trivy).
 
+      # Tag pushes: CI did not gate this run — test before publish.
+      # workflow_call from CI already ran make test.
+      - name: Test (tag pushes)
+        if: github.event_name != 'workflow_call'
+        run: go test -buildvcs=false ./...
+
       # Real release (not --snapshot) so dockers_v2 can push multi-arch manifests.
       # Snapshot path creates immutable v*-snapshot.N tags above; semver tag pushes use the tag.
       # dockers_v2 pushes only sha-<commit>; mutable tags are promoted after Trivy below.
@@ -110,8 +116,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_CURRENT_TAG: ${{ steps.release.outputs.tag }}
-          # CI already ran go test; skip duplicate in before hooks (tag pushes still test).
-          SKIP_BEFORE_TEST: ${{ github.event_name == 'workflow_call' && '1' || '0' }}
 
       - name: Resolve image digest
         id: digest

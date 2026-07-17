@@ -17,9 +17,7 @@ snapshot:
 before:
   hooks:
     - go mod download
-    # SKIP_BEFORE_TEST=1 when Release is workflow_call'd from CI (tests already ran).
-    # Tag pushes and local goreleaser runs still execute go test.
-    - sh -c 'if [ "${SKIP_BEFORE_TEST:-}" = "1" ]; then echo "skipping go test (SKIP_BEFORE_TEST=1)"; else go test -buildvcs=false ./...; fi'
+    # go test lives in CI / release.yml (tag pushes), not here — avoids SKIP_BEFORE_TEST magic.
     - go install github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@v1.10.0
 
 builds:
