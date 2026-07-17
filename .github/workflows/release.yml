@@ -138,9 +138,11 @@ jobs:
           TAGS=("-t" "${{ env.IMAGE }}:${IMAGE_TAG}")
           if [[ "${IS_SNAPSHOT}" == "true" ]]; then
             # Numbered tag plus floating alias for the release line (e.g. v0.2.0-snapshot).
-            if [[ -n "${FLOATING_SNAPSHOT_TAG}" ]]; then
-              TAGS+=("-t" "${{ env.IMAGE }}:${FLOATING_SNAPSHOT_TAG}")
+            if [[ -z "${FLOATING_SNAPSHOT_TAG}" ]]; then
+              echo "::error::floating_snapshot_tag empty on snapshot path"
+              exit 1
             fi
+            TAGS+=("-t" "${{ env.IMAGE }}:${FLOATING_SNAPSHOT_TAG}")
           else
             MAJOR_MINOR="$(echo "${IMAGE_TAG}" | cut -d. -f1,2)"
             TAGS+=("-t" "${{ env.IMAGE }}:${MAJOR_MINOR}" "-t" "${{ env.IMAGE }}:latest")
