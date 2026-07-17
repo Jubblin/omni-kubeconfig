@@ -101,6 +101,9 @@ release:
   prerelease: auto
   # Snapshot tags must not become the repo "latest" release.
   make_latest: "{{ not .Prerelease }}"
+  # Keep replace for idempotent re-runs of the same immutable tag (e.g. re-triggered
+  # Release after a transient GHCR/GitHub upload failure). Numbered snapshots no longer
+  # overwrite prior N, but the same tag may still be republished intentionally.
   replace_existing_artifacts: true
   mode: replace
   target_commitish: "{{ .Commit }}"
