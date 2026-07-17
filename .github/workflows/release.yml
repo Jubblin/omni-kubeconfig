@@ -37,8 +37,9 @@ jobs:
         id: release
         run: |
           set -euo pipefail
-          if [[ "${GITHUB_REF}" == refs/tags/v[0-9]* ]]; then
-            TAG="${GITHUB_REF#refs/tags/}"
+          # Same invariant as on.push.tags: full releases are exact vX.Y.Z only.
+          if [[ "${GITHUB_REF}" =~ ^refs/tags/(v[0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            TAG="${BASH_REMATCH[1]}"
             echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
             echo "snapshot=false" >> "$GITHUB_OUTPUT"
             # GHCR release tags use Version without leading v (e.g. 0.1.2).
