@@ -93,17 +93,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # cache-dir must stay outside the workspace: trivy-action defaults to
-      # ${{ github.workspace }}/.cache/trivy, which dirties the tree and makes
-      # GoReleaser abort (?? .cache/). Severity / exit-code unchanged.
-      - name: Scan Dockerfile (misconfigurations)
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          scan-type: config
-          scan-ref: Dockerfile
-          severity: CRITICAL,HIGH
-          exit-code: 1
-          cache-dir: ${{ runner.temp }}/trivy-cache
+      # Dockerfile config scan lives in docker.yml (Dockerfile path changes only).
+      # Image Trivy below still uses cache-dir outside the workspace so trivy-action
+      # does not dirty the tree (default ${{ github.workspace }}/.cache/trivy).
 
       # Real release (not --snapshot) so dockers_v2 can push multi-arch manifests.
       # Snapshot path creates immutable v*-snapshot.N tags above; semver tag pushes use the tag.
