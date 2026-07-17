@@ -26,7 +26,7 @@ Do not change CI checks/workflows just to make failures pass. Fix the code or co
   1. GoReleaser pushes immutable `ghcr.io/jubblin/omni-kubeconfig:sha-<commit>`
   2. Trivy scans that digest (`CRITICAL`/`HIGH`, `exit-code: 1`)
   3. Only then promote `v0.2.0-snapshot.N` **and** floating `v0.2.0-snapshot` (snapshot) or semver + `major.minor` + `latest` (full release)
-- Cosign + container SBOM after promote; Dockerfile config scan before GoReleaser
+- Cosign + container SBOM after promote; Dockerfile config scan owned by `docker.yml` (Dockerfile path changes)
 
 ```bash
 docker pull ghcr.io/jubblin/omni-kubeconfig:v0.2.0-snapshot      # floating latest on line
@@ -51,7 +51,7 @@ docker pull ghcr.io/jubblin/omni-kubeconfig:latest
 - Snapshot vs release tagging is driven by `is_snapshot` / `release_tag` / `image_tag` job outputs — do not hardcode version strings in the workflow.
 - Tag trigger must be `v[0-9]+.[0-9]+.[0-9]+` so `v*-snapshot.N` tags do not re-enter Release as a full release.
 - Mutable image tags must never be updated before a successful Trivy image scan of the digest.
-- Trivy steps that run before GoReleaser must set `cache-dir` outside the workspace (e.g. `${{ runner.temp }}/trivy-cache`); the action default is `${{ github.workspace }}/.cache/trivy` and will dirty the git tree.
+- Trivy steps that run in the same job as GoReleaser must set `cache-dir` outside the workspace (e.g. `${{ runner.temp }}/trivy-cache`); the action default is `${{ github.workspace }}/.cache/trivy` and will dirty the git tree.
 
 ## Tests in release path
 
