@@ -23,11 +23,6 @@ jobs:
       id-token: write
       actions: write
       attestations: write
-    outputs:
-      release_tag: ${{ steps.release.outputs.tag }}
-      is_snapshot: ${{ steps.release.outputs.snapshot }}
-      image_tag: ${{ steps.release.outputs.image_tag }}
-      image_digest: ${{ steps.digest.outputs.digest }}
     steps:
       - uses: actions/checkout@v7
         with:
