@@ -9,7 +9,7 @@ alwaysApply: true
 
 | Workflow | Trigger | Publishes? |
 |----------|---------|------------|
-| `ci.yml` | Push/PR to `main` (skips docs/`.cursor`-only via `paths-ignore`) | No — test, lint, GoReleaser snapshot build (`--skip=publish`), Trivy FS vuln scan |
+| `ci.yml` | Push/PR to `main` (skips docs/`.cursor`-only via `paths-ignore`) | No — test, lint, GoReleaser snapshot build (`--skip=publish,docker`), Trivy FS vuln scan |
 | `docker.yml` | Dockerfile path changes | No — Hadolint + Dockerfile Trivy config scan |
 | `release.yml` | CI success on push to `main` (`workflow_call`); tag `vX.Y.Z` push | Yes — GoReleaser binaries, GH release, GHCR via `dockers_v2` |
 
@@ -17,7 +17,7 @@ Do not change CI checks/workflows just to make failures pass. Fix the code or co
 
 ## Push to `main` (snapshot)
 
-- **CI** runs on the push (unless only markdown / `.cursor` / `docs` paths changed); **Release** runs after test, lint, GoReleaser snapshot build, and Trivy succeed (not on PR runs).
+- **CI** runs on the push (unless only markdown / `.cursor` / `docs` paths changed); **Release** runs after test, lint, GoReleaser snapshot build (`--skip=publish,docker`), and Trivy succeed (not on PR runs). Multi-arch `dockers_v2` is validated on Release, not duplicated in CI.
 - Release creates an **immutable** git tag `<latest-vX.Y.Z>-snapshot.<N>` (e.g. `v0.2.0-snapshot.1`, then `.2`, …) via `scripts/next-snapshot-tag.sh` — never force-pushed.
 - Runs `goreleaser release --clean` (not `--snapshot`) so `dockers_v2` can push multi-arch manifests.
 - `GORELEASER_CURRENT_TAG` set to that numbered snapshot tag; `SKIP_BEFORE_TEST=1` skips GoReleaser `before` `go test` (CI already tested).
