@@ -3,7 +3,7 @@
 [![CI](https://github.com/Jubblin/omni-kubeconfig/actions/workflows/ci.yml/badge.svg)](https://github.com/Jubblin/omni-kubeconfig/actions/workflows/ci.yml)
 [![Release](https://github.com/Jubblin/omni-kubeconfig/actions/workflows/release.yml/badge.svg)](https://github.com/Jubblin/omni-kubeconfig/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Go Report Card](https://goreportcard.com/badge/github.com/Jubblin/omni-kubeconfig)](https://goreportcard.com/report/github.com/Jubblin/omni-kubeconfig)
+[![golangci-lint](https://img.shields.io/github/actions/workflow/status/Jubblin/omni-kubeconfig/ci.yml?branch=main&label=golangci-lint&logo=go)](https://github.com/Jubblin/omni-kubeconfig/actions/workflows/ci.yml)
 
 Download admin kubeconfigs for every cluster on a [Sidero Omni](https://docs.siderolabs.com/omni) server and merge them into a single file for `kubectl`.
 
@@ -247,7 +247,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
-| [ci.yml](.github/workflows/ci.yml) | Push/PR to `main` (skips docs / `.cursor`-only) | Test, vet, lint, GoReleaser snapshot build (`--skip=publish`), Trivy FS vuln scan; on `main` calls Release |
+| [ci.yml](.github/workflows/ci.yml) | Push/PR to `main` (skips docs / `.cursor`-only) | Test, vet, [golangci-lint](.golangci.yml) (v2.12.2), GoReleaser snapshot build (`--skip=publish`), Trivy FS vuln scan; on `main` calls Release |
 | [docker.yml](.github/workflows/docker.yml) | Dockerfile path changes | Hadolint + Dockerfile Trivy config scan |
 | [release.yml](.github/workflows/release.yml) | CI success on `main`; tag `vX.Y.Z` | GoReleaser binaries + GH release + GHCR (`sha-` then promote after Trivy), Cosign |
 

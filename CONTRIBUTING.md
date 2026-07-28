@@ -20,7 +20,7 @@ Requirements:
 
 - Go 1.25+ (see `go.mod`)
 - Make
-- Optional: [golangci-lint](https://golangci-lint.run/) v2.12.2 (match CI)
+- **Lint:** [golangci-lint](https://golangci-lint.run/) v2.12.2 (match CI) — `make lint`; config in [`.golangci.yml`](.golangci.yml). This replaces third-party Go Report Card as the code quality gate.
 - Optional: [pre-commit](https://pre-commit.com/) for git hook checks
 
 ```bash
