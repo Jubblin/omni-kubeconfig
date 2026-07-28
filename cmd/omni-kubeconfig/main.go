@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Jubblin/omni-kubeconfig/internal/omni"
+	"github.com/Jubblin/omni-kubeconfig/internal/update"
 	appversion "github.com/Jubblin/omni-kubeconfig/internal/version"
 )
 
@@ -40,6 +42,8 @@ func newRootCmd() *cobra.Command {
 		contextName           string
 		insecureSkipTLSVerify bool
 		sideroV1KeysDir       string
+		noUpdateCheck         bool
+		forceUpdateCheck      bool
 	)
 
 	root := &cobra.Command{
@@ -51,13 +55,22 @@ Commands:
   auth        Authenticate to Omni (SideroV1 PGP + browser login)
   sync        Download and merge OIDC admin kubeconfigs for clusters
   kubeconfig  Download one cluster kubeconfig (OIDC or Kubernetes service account)
+  update      Install the latest release (self-update)
+
+Install:
+  curl -fsSL https://raw.githubusercontent.com/Jubblin/omni-kubeconfig/main/scripts/install.sh | bash
 
 Global flags apply to all commands (see --help on each command for command-specific flags).`,
 		Version: fmt.Sprintf("%s (Omni API %d)", appversion.String(), omniAPIVersion),
-		Example: `  omni-kubeconfig auth
+		Example: `  curl -fsSL https://raw.githubusercontent.com/Jubblin/omni-kubeconfig/main/scripts/install.sh | bash
+  omni-kubeconfig auth
   omni-kubeconfig sync
+  omni-kubeconfig update
   omni-kubeconfig sync --cluster prod --output ~/.kube/omni-prod
   omni-kubeconfig kubeconfig --service-account --cluster prod --user ci-deploy -o ./prod-ci.kubeconfig`,
+		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+			return maybeCheckForUpdates(cmd, noUpdateCheck, forceUpdateCheck)
+		},
 	}
 
 	root.PersistentFlags().StringVar(&omniconfig, "omniconfig", "",
@@ -68,6 +81,10 @@ Global flags apply to all commands (see --help on each command for command-speci
 		"skip TLS verification for Omni API")
 	root.PersistentFlags().StringVar(&sideroV1KeysDir, "siderov1-keys-dir", "",
 		"path to SideroV1 auth keys (default: SIDEROV1_KEYS_DIR or ~/.talos/keys)")
+	root.PersistentFlags().BoolVar(&noUpdateCheck, "no-update-check", false,
+		"disable check for newer releases before running a command")
+	root.PersistentFlags().BoolVar(&forceUpdateCheck, "check-updates", false,
+		"force update check ignoring the 24h cache")
 
 	clientOpts := func() omni.ClientOptions {
 		return omni.ClientOptions{
@@ -300,11 +317,101 @@ Global flags: --omniconfig, --context, --insecure-skip-tls-verify, --siderov1-ke
 		"print export KUBECONFIG=<path> when -o is not ~/.kube/config")
 	_ = kubeCmd.MarkFlagRequired("cluster")
 
+	var (
+		updateVersion string
+		updateInstall string
+		updateCheck   bool
+	)
+
+	updateCmd := &cobra.Command{
+		Use:   "update",
+		Short: "Download and install a release of omni-kubeconfig",
+		Long: `Install or upgrade omni-kubeconfig from GitHub releases.
+
+By default installs the latest stable release over the running executable.
+Use --install-dir to install to a directory instead (same layout as install.sh).
+
+Examples:
+  omni-kubeconfig update
+  omni-kubeconfig update --check
+  omni-kubeconfig update --version v0.3.0
+  omni-kubeconfig update --install-dir ~/.local/bin`,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			cfg := update.Config{Repo: update.DefaultRepo}
+			current := appversion.Version
+
+			if updateCheck {
+				res, err := update.Check(context.Background(), cfg, current, update.CheckOptions{
+					SkipCheck:  noUpdateCheck,
+					ForceCheck: true,
+				})
+				if err != nil {
+					return err
+				}
+				if !res.Newer {
+					fmt.Fprintf(os.Stderr, "omni-kubeconfig %s is up to date (latest %s)\n",
+						normalizeVersion(current), res.Latest.Version)
+					return nil
+				}
+				return fmt.Errorf("update available: %s (current %s)", res.Latest.Version, normalizeVersion(current))
+			}
+
+			opts := update.InstallOptions{TargetPath: updateInstall}
+			if updateVersion != "" {
+				tag := updateVersion
+				if tag[0] != 'v' {
+					tag = "v" + tag
+				}
+				opts.Tag = tag
+				return update.InstallRelease(context.Background(), cfg, opts)
+			}
+			if updateInstall != "" {
+				dir, err := filepath.Abs(updateInstall)
+				if err != nil {
+					return err
+				}
+				goos, _ := update.CurrentPlatform()
+				opts.TargetPath = filepath.Join(dir, update.InstalledBinaryName(goos))
+			}
+			return update.InstallLatest(context.Background(), cfg, opts)
+		},
+	}
+	updateCmd.Flags().StringVar(&updateVersion, "version", "",
+		"install a specific release tag (e.g. v0.3.0) instead of latest stable")
+	updateCmd.Flags().StringVar(&updateInstall, "install-dir", "",
+		"install to this directory instead of replacing the running executable")
+	updateCmd.Flags().BoolVar(&updateCheck, "check", false,
+		"report whether a newer stable release exists (exit 1 if outdated)")
+
 	root.AddCommand(authCmd)
 	root.AddCommand(syncCmd)
 	root.AddCommand(kubeCmd)
+	root.AddCommand(updateCmd)
 
 	return root
+}
+
+func maybeCheckForUpdates(cmd *cobra.Command, noUpdateCheck, forceUpdateCheck bool) error {
+	if noUpdateCheck || cmd.Name() == "update" {
+		return nil
+	}
+	if cmd.Root().Flags().Changed("version") {
+		return nil
+	}
+
+	cfg := update.Config{Repo: update.DefaultRepo}
+	return update.MaybePrompt(context.Background(), cfg, appversion.Version, update.CheckOptions{
+		SkipCheck:  noUpdateCheck,
+		ForceCheck: forceUpdateCheck,
+		NoPrompt:   false,
+	}, os.Stdin, os.Stderr)
+}
+
+func normalizeVersion(v string) string {
+	if len(v) > 0 && v[0] == 'v' {
+		return v[1:]
+	}
+	return v
 }
 
 func defaultKubeconfigPath() (string, error) {

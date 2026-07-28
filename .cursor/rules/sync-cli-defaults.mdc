@@ -38,3 +38,8 @@ Logic lives in `shouldPrintKubeconfigExport` (`cmd/omni-kubeconfig/main.go`).
 ## Docs
 
 Keep README image-tag examples and sync examples aligned with these defaults.
+
+## Update checks
+
+- Interactive update prompts run from root `PersistentPreRun` on `auth` / `sync` / `kubeconfig` (not `update`, not `--version`).
+- Must not block CI: respect `CI=true`, non-TTY stdin, `--no-update-check`, and `OMNI_KUBECONFIG_SKIP_UPDATE_CHECK=1`.

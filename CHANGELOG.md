@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- One-click install scripts: `scripts/install.sh` (Unix) and `scripts/install.ps1` (Windows) with SHA256 verification against release `sha256sum.txt`
+- `update` command to install the latest stable release (self-update) or check for updates (`update --check`)
+- Interactive update prompt on `auth` / `sync` / `kubeconfig` when a newer stable release exists (opt-out: `--no-update-check`, `OMNI_KUBECONFIG_SKIP_UPDATE_CHECK=1`)
+
 ## [0.3.0] - 2026-07-28
 
 ### Added
