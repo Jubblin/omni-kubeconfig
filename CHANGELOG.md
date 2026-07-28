@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- README quality badge now reflects CI **golangci-lint** (replaces Go Report Card); `make lint` falls back to `go run` when the binary is not installed
+
 ## [0.3.1] - 2026-07-28
 
 ### Added
