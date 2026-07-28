@@ -82,7 +82,7 @@ func FetchLatestStable(ctx context.Context, cfg Config) (Release, error) {
 	if err != nil {
 		return Release{}, fmt.Errorf("fetch latest release: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))

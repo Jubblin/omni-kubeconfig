@@ -86,8 +86,8 @@ func MaybePrompt(ctx context.Context, cfg Config, currentVersion string, opts Ch
 		return nil
 	}
 
-	fmt.Fprintf(stderr, "A new version is available: %s (you have %s).\n", result.Latest.Version, normalizeTag(currentVersion))
-	fmt.Fprintf(stderr, "Update now? [y/N] ")
+	fmt.Fprintf(stderr, "A new version is available: %s (you have %s).\n", result.Latest.Version, normalizeTag(currentVersion)) //nolint:errcheck // best-effort stderr
+	fmt.Fprintf(stderr, "Update now? [y/N] ")                                                                                   //nolint:errcheck
 
 	if !readYes(stdin) {
 		return nil
@@ -226,7 +226,7 @@ func downloadBytes(ctx context.Context, cfg Config, url string) ([]byte, error) 
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("HTTP %d from %s", resp.StatusCode, url)
 	}

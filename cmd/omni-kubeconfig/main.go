@@ -318,9 +318,9 @@ Global flags: --omniconfig, --context, --insecure-skip-tls-verify, --siderov1-ke
 	_ = kubeCmd.MarkFlagRequired("cluster")
 
 	var (
-		updateVersion  string
-		updateInstall  string
-		updateCheck    bool
+		updateVersion string
+		updateInstall string
+		updateCheck   bool
 	)
 
 	updateCmd := &cobra.Command{
