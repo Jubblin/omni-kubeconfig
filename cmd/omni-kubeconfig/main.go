@@ -58,11 +58,11 @@ Commands:
   update      Install the latest release (self-update)
 
 Install:
-  curl -fsSL https://raw.githubusercontent.com/Jubblin/omni-kubeconfig/main/scripts/install.sh | bash
+  curl -fsSL https://github.com/Jubblin/omni-kubeconfig/releases/latest/download/install.sh | bash
 
 Global flags apply to all commands (see --help on each command for command-specific flags).`,
 		Version: fmt.Sprintf("%s (Omni API %d)", appversion.String(), omniAPIVersion),
-		Example: `  curl -fsSL https://raw.githubusercontent.com/Jubblin/omni-kubeconfig/main/scripts/install.sh | bash
+		Example: `  curl -fsSL https://github.com/Jubblin/omni-kubeconfig/releases/latest/download/install.sh | bash
   omni-kubeconfig auth
   omni-kubeconfig sync
   omni-kubeconfig update
