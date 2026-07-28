@@ -1,7 +1,6 @@
 # omni-kubeconfig
 
 [![CI](https://github.com/Jubblin/omni-kubeconfig/actions/workflows/ci.yml/badge.svg)](https://github.com/Jubblin/omni-kubeconfig/actions/workflows/ci.yml)
-[![Docker](https://github.com/Jubblin/omni-kubeconfig/actions/workflows/docker.yml/badge.svg)](https://github.com/Jubblin/omni-kubeconfig/actions/workflows/docker.yml)
 [![Release](https://github.com/Jubblin/omni-kubeconfig/actions/workflows/release.yml/badge.svg)](https://github.com/Jubblin/omni-kubeconfig/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Go Report Card](https://goreportcard.com/badge/github.com/Jubblin/omni-kubeconfig)](https://goreportcard.com/report/github.com/Jubblin/omni-kubeconfig)
