@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `kubeconfig` command to download one cluster kubeconfig, including Kubernetes service-account tokens (`--service-account --user`) matching [Omni docs](https://docs.siderolabs.com/omni/omni-cluster-setup/create-a-kubeconfig-for-a-service-account)
 
+### Fixed
+
+- `.gitignore` `kubeconfig` / `kubeconfig.*` patterns now apply only at the repo root so source files like `kubeconfig.go` are tracked
+
 ### Changed
 
 - Snapshot tags are now immutable and numbered (`vX.Y.Z-snapshot.N`); GHCR still promotes floating `vX.Y.Z-snapshot` after Trivy
