@@ -12,6 +12,9 @@ Download admin kubeconfigs for every cluster on a [Sidero Omni](https://docs.sid
 - **`auth`** — SideroV1 PGP + browser login (same flow as `omnictl`)
 - **`sync`** — List all Omni clusters, download OIDC admin kubeconfigs, merge into one file
 - **`kubeconfig`** — Download one cluster kubeconfig; optional `--service-account` for token-based access (no kubelogin)
+- **`update`** — Install the latest release (self-update) or check for updates
+- One-click install via `scripts/install.sh` / `scripts/install.ps1` with SHA256 verification
+- Interactive update prompt when a newer stable release exists (opt-out flags available)
 - Incremental merge into existing output by default (`--merge-existing`); full replace with `--merge-existing=false`
 - Name conflicts overwrite by default; `--rename-on-conflict` keeps both (incoming → `name-1`)
 - Preserves existing `current-context` by default (cold starts / empty `current-context` still get one); `--activate-context` sets it to the last merged cluster
@@ -19,6 +22,22 @@ Download admin kubeconfigs for every cluster on a [Sidero Omni](https://docs.sid
 - Omni API v2 compatible
 
 ## Quick start
+
+### One-click install (recommended)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Jubblin/omni-kubeconfig/main/scripts/install.sh | bash
+```
+
+Windows (PowerShell):
+
+```powershell
+irm https://raw.githubusercontent.com/Jubblin/omni-kubeconfig/main/scripts/install.ps1 | iex
+```
+
+Installs a checksum-verified binary to `~/.local/bin` (Unix) or `%LOCALAPPDATA%\Programs\omni-kubeconfig` (Windows). Add the directory to your `PATH` if prompted.
+
+Upgrade later with `omni-kubeconfig update` or re-run the install script. On interactive runs, the tool prompts when a newer stable release is available (disable with `--no-update-check` or `OMNI_KUBECONFIG_SKIP_UPDATE_CHECK=1`).
 
 ### Install from release
 
@@ -308,7 +327,7 @@ Run the same commands inside the published image; mount `~/.talos` and `~/.kube`
 
 ## Reference
 
-`omni-kubeconfig --help`, `auth --help`, `sync --help`, and `kubeconfig --help` mirror this section.
+`omni-kubeconfig --help`, `auth --help`, `sync --help`, `kubeconfig --help`, and `update --help` mirror this section.
 
 ### Global flags
 
@@ -318,6 +337,8 @@ Run the same commands inside the published image; mount `~/.talos` and `~/.kube`
 | `--context` | Selected context | Omni context name |
 | `--insecure-skip-tls-verify` | `false` | Skip TLS verification for Omni API |
 | `--siderov1-keys-dir` | `SIDEROV1_KEYS_DIR` or `~/.talos/keys` | SideroV1 PGP keys directory |
+| `--no-update-check` | `false` | Disable check for newer releases before running a command |
+| `--check-updates` | `false` | Force update check (ignore 24h cache) |
 | `-h`, `--help` | | Show help |
 | `-v`, `--version` | | Semver, build metadata, Omni API level |
 
@@ -358,6 +379,14 @@ Run the same commands inside the published image; mount `~/.talos` and `~/.kube`
 | `--break-glass` | `false` | Bypass Omni when enabled for the account |
 | `--print-export` | `true` | Print `export KUBECONFIG=...` when `-o` is not `~/.kube/config` |
 
+### `update` flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--version` | latest stable | Install a specific release tag (e.g. `v0.3.0`) |
+| `--install-dir` | running executable | Install to this directory instead of self-replace |
+| `--check` | `false` | Report if a newer stable release exists (exit 1 if outdated) |
+
 ### Environment variables
 
 | Variable | Description |
@@ -365,6 +394,7 @@ Run the same commands inside the published image; mount `~/.talos` and `~/.kube`
 | `OMNICONFIG` | Omniconfig path |
 | `OMNI_ENDPOINT` | Override Omni API URL |
 | `OMNI_SERVICE_ACCOUNT_KEY` | Base64 Omni API service account (non-interactive tool auth; also `SIDERO_SERVICE_ACCOUNT_KEY`) |
+| `OMNI_KUBECONFIG_SKIP_UPDATE_CHECK` | Set to `1` to disable update prompts/checks |
 | `SIDEROV1_KEYS_DIR` | PGP keys directory |
 | `BROWSER` | Set to `echo` to print login URL instead of opening a browser |
 
@@ -380,6 +410,10 @@ omni-kubeconfig sync --merge-existing=false   # drop contexts from prior syncs n
 omni-kubeconfig sync --grant-type authcode-keyboard
 omni-kubeconfig kubeconfig -c prod
 omni-kubeconfig kubeconfig --service-account -c prod --user ci-deploy -o ./prod-ci.kubeconfig --merge-existing=false --force
+curl -fsSL https://raw.githubusercontent.com/Jubblin/omni-kubeconfig/main/scripts/install.sh | bash
+omni-kubeconfig update
+omni-kubeconfig update --check
+omni-kubeconfig sync --no-update-check
 ```
 
 ## Troubleshooting

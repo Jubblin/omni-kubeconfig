@@ -105,3 +105,6 @@ release:
   replace_existing_artifacts: true
   mode: replace
   target_commitish: "{{ .Commit }}"
+  extra_files:
+    - glob: scripts/install.sh
+    - glob: scripts/install.ps1

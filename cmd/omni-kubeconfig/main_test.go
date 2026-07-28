@@ -165,3 +165,26 @@ func TestKubeconfigCommandFlags(t *testing.T) {
 		t.Fatalf("service-account default = %v", sa)
 	}
 }
+
+func TestUpdateCommandRegistered(t *testing.T) {
+	cmd := newRootCmd()
+	updateCmd, _, err := cmd.Find([]string{"update"})
+	if err != nil {
+		t.Fatalf("Find update: %v", err)
+	}
+	if updateCmd.Use != "update" {
+		t.Fatalf("update command = %q", updateCmd.Use)
+	}
+	if updateCmd.Flags().Lookup("check") == nil {
+		t.Fatal("update --check flag missing")
+	}
+}
+
+func TestNormalizeVersion(t *testing.T) {
+	if got := normalizeVersion("v0.3.0"); got != "0.3.0" {
+		t.Fatalf("got %q", got)
+	}
+	if got := normalizeVersion("0.3.0"); got != "0.3.0" {
+		t.Fatalf("got %q", got)
+	}
+}
