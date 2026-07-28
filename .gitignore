@@ -44,8 +44,9 @@ omniconfig
 omniconfig.*
 omniconfig.yaml
 omniconfig.yml
-kubeconfig
-kubeconfig.*
+# Local kubeconfig artifacts at repo root only (do not ignore *.go sources)
+/kubeconfig
+/kubeconfig.*
 omni-merged-config
 # Binary names at repo root (not cmd/omni-kubeconfig/)
 /omni-kubeconfig

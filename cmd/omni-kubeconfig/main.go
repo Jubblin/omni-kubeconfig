@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	omnilibversion "github.com/siderolabs/omni/client/pkg/version"
 	"github.com/spf13/cobra"
@@ -47,14 +48,16 @@ func newRootCmd() *cobra.Command {
 		Long: `Download admin kubeconfigs from a Sidero Omni server and merge them into one file for kubectl.
 
 Commands:
-  auth   Authenticate to Omni (SideroV1 PGP + browser login)
-  sync   Download and merge cluster kubeconfigs
+  auth        Authenticate to Omni (SideroV1 PGP + browser login)
+  sync        Download and merge OIDC admin kubeconfigs for clusters
+  kubeconfig  Download one cluster kubeconfig (OIDC or Kubernetes service account)
 
-Global flags apply to all commands (see --help on auth or sync for command-specific flags).`,
+Global flags apply to all commands (see --help on each command for command-specific flags).`,
 		Version: fmt.Sprintf("%s (Omni API %d)", appversion.String(), omniAPIVersion),
 		Example: `  omni-kubeconfig auth
   omni-kubeconfig sync
-  omni-kubeconfig sync --cluster prod --output ~/.kube/omni-prod`,
+  omni-kubeconfig sync --cluster prod --output ~/.kube/omni-prod
+  omni-kubeconfig kubeconfig --service-account --cluster prod --user ci-deploy -o ./prod-ci.kubeconfig`,
 	}
 
 	root.PersistentFlags().StringVar(&omniconfig, "omniconfig", "",
@@ -192,8 +195,114 @@ Environment:
 	authCmd.Flags().BoolVar(&authForce, "force", false,
 		"delete the existing PGP key for this context/identity and force a new browser login")
 
+	var (
+		kubeOutput           string
+		kubeCluster          string
+		kubeServiceAccount   bool
+		kubeUser             string
+		kubeTTL              time.Duration
+		kubeGroups           []string
+		kubeForce            bool
+		kubeRenameOnConflict bool
+		kubeActivateContext  bool
+		kubeGrantType        string
+		kubeBreakGlass       bool
+		kubePrintExport      bool
+		kubeMergeExisting    bool
+	)
+
+	kubeCmd := &cobra.Command{
+		Use:   "kubeconfig",
+		Short: "Download a kubeconfig for one Omni cluster",
+		Long: `Download a kubeconfig for a single cluster via the Omni management API.
+
+By default this requests an OIDC admin kubeconfig (same style as sync). With
+--service-account, Omni mints a Kubernetes service-account token kubeconfig
+(token-based; no kubelogin). This is cluster access — not an Omni API service
+account (OMNI_SERVICE_ACCOUNT_KEY).
+
+See: https://docs.siderolabs.com/omni/omni-cluster-setup/create-a-kubeconfig-for-a-service-account
+
+Flags:
+  -o, --output string         Path for the kubeconfig (default: ~/.kube/config)
+  -c, --cluster string        Omni cluster name (required)
+      --service-account       Request a service-account token kubeconfig
+      --user string           Token subject (required with --service-account)
+      --ttl duration          Service account token TTL (default: 8760h / 365d)
+      --groups strings        Token groups (default: system:masters)
+      --merge-existing        Merge into existing output (default: true)
+      --force                 Overwrite existing file when --merge-existing=false
+      --rename-on-conflict    Rename conflicting entries instead of overwriting
+      --activate-context      Set current-context to this cluster
+      --grant-type string     OIDC grant type for non-SA kubeconfigs
+      --break-glass           Bypass Omni when enabled for the account
+      --print-export          Print "export KUBECONFIG=..." when -o is not default
+
+Global flags: --omniconfig, --context, --insecure-skip-tls-verify, --siderov1-keys-dir`,
+		Example: `  omni-kubeconfig kubeconfig -c prod
+  omni-kubeconfig kubeconfig --service-account -c prod --user ci-deploy -o ./prod-ci.kubeconfig
+  omni-kubeconfig kubeconfig --service-account -c prod --user ci --ttl 720h --groups system:masters`,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			resolvedOutput, err := resolveOutputPath(kubeOutput)
+			if err != nil {
+				return err
+			}
+
+			printKubeconfigExport, err := shouldPrintKubeconfigExport(resolvedOutput, kubePrintExport)
+			if err != nil {
+				return err
+			}
+
+			return omni.Kubeconfig(omni.KubeconfigOptions{
+				ClientOptions:    clientOpts(),
+				OutputPath:       resolvedOutput,
+				Cluster:          kubeCluster,
+				ServiceAccount:   kubeServiceAccount,
+				User:             kubeUser,
+				TTL:              kubeTTL,
+				Groups:           kubeGroups,
+				Force:            kubeForce,
+				RenameOnConflict: kubeRenameOnConflict,
+				ActivateContext:  kubeActivateContext,
+				GrantType:        kubeGrantType,
+				BreakGlass:       kubeBreakGlass,
+				PrintExport:      printKubeconfigExport,
+				MergeExisting:    kubeMergeExisting,
+			})
+		},
+	}
+
+	kubeCmd.Flags().StringVarP(&kubeOutput, "output", "o", defaultOutput,
+		"path for the kubeconfig file")
+	kubeCmd.Flags().StringVarP(&kubeCluster, "cluster", "c", "",
+		"Omni cluster name (required)")
+	kubeCmd.Flags().BoolVar(&kubeServiceAccount, "service-account", false,
+		"create a Kubernetes service-account token kubeconfig instead of an OIDC user kubeconfig")
+	kubeCmd.Flags().StringVar(&kubeUser, "user", "",
+		"user (sub) for the service account token; required with --service-account")
+	kubeCmd.Flags().DurationVar(&kubeTTL, "ttl", omni.DefaultServiceAccountTTL,
+		"TTL for the service account token (only used with --service-account)")
+	kubeCmd.Flags().StringSliceVar(&kubeGroups, "groups", append([]string(nil), omni.DefaultServiceAccountGroups...),
+		"groups claim for the service account token (only used with --service-account)")
+	kubeCmd.Flags().BoolVar(&kubeMergeExisting, "merge-existing", true,
+		"load existing output file and merge; false replaces/writes only this cluster")
+	kubeCmd.Flags().BoolVar(&kubeForce, "force", false,
+		"overwrite existing output when --merge-existing=false")
+	kubeCmd.Flags().BoolVar(&kubeRenameOnConflict, "rename-on-conflict", false,
+		"on merge conflict, rename incoming cluster/context/user instead of overwriting")
+	kubeCmd.Flags().BoolVar(&kubeActivateContext, "activate-context", false,
+		"set current-context to this cluster; default preserves existing (activates when empty)")
+	kubeCmd.Flags().StringVar(&kubeGrantType, "grant-type", "auto",
+		"OIDC grant type embedded in non-service-account kubeconfigs (auto, authcode, authcode-keyboard)")
+	kubeCmd.Flags().BoolVar(&kubeBreakGlass, "break-glass", false,
+		"request a kubeconfig that bypasses Omni when enabled for the account")
+	kubeCmd.Flags().BoolVar(&kubePrintExport, "print-export", true,
+		"print export KUBECONFIG=<path> when -o is not ~/.kube/config")
+	_ = kubeCmd.MarkFlagRequired("cluster")
+
 	root.AddCommand(authCmd)
 	root.AddCommand(syncCmd)
+	root.AddCommand(kubeCmd)
 
 	return root
 }

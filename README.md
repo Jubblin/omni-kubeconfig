@@ -11,7 +11,8 @@ Download admin kubeconfigs for every cluster on a [Sidero Omni](https://docs.sid
 ## Features
 
 - **`auth`** — SideroV1 PGP + browser login (same flow as `omnictl`)
-- **`sync`** — List all Omni clusters, download kubeconfigs, merge into one file
+- **`sync`** — List all Omni clusters, download OIDC admin kubeconfigs, merge into one file
+- **`kubeconfig`** — Download one cluster kubeconfig; optional `--service-account` for token-based access (no kubelogin)
 - Incremental merge into existing output by default (`--merge-existing`); full replace with `--merge-existing=false`
 - Name conflicts overwrite by default; `--rename-on-conflict` keeps both (incoming → `name-1`)
 - Preserves existing `current-context` by default (cold starts / empty `current-context` still get one); `--activate-context` sets it to the last merged cluster
@@ -283,13 +284,32 @@ kubectl get nodes --context <cluster-name>
 
 On success, `sync` prints `export KUBECONFIG=<path>` when `-o` is not the default `~/.kube/config` (disable with `--print-export=false`).
 
+### Service-account kubeconfig (token)
+
+For CI or other non-interactive cluster access, mint a **Kubernetes** service-account kubeconfig (not an Omni API service account):
+
+```bash
+omni-kubeconfig kubeconfig \
+  --service-account \
+  --cluster prod \
+  --user ci-deploy \
+  --ttl 720h \
+  -o ./prod-ci.kubeconfig \
+  --merge-existing=false \
+  --force
+```
+
+Use that file with `kubectl` directly (embedded token; no `kubelogin`). See the [Omni guide](https://docs.siderolabs.com/omni/omni-cluster-setup/create-a-kubeconfig-for-a-service-account).
+
+To authenticate *this tool* to Omni without a browser, use an Omni service account key (`OMNI_SERVICE_ACCOUNT_KEY`) instead — that is separate from cluster SA kubeconfigs.
+
 ### Docker
 
 Run the same commands inside the published image; mount `~/.talos` and `~/.kube`, use `--user "$(id -u):$(id -g)"`, and keep `kubectl` on the host. See [Run with Docker](#run-with-docker).
 
 ## Reference
 
-`omni-kubeconfig --help`, `auth --help`, and `sync --help` mirror this section.
+`omni-kubeconfig --help`, `auth --help`, `sync --help`, and `kubeconfig --help` mirror this section.
 
 ### Global flags
 
@@ -321,13 +341,31 @@ Run the same commands inside the published image; mount `~/.talos` and `~/.kube`
 | `--dry-run` | `false` | List clusters only |
 | `--print-export` | `true` | Print `export KUBECONFIG=...` when `-o` is not `~/.kube/config` |
 
+### `kubeconfig` flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-o`, `--output` | `~/.kube/config` | Kubeconfig path |
+| `-c`, `--cluster` | (required) | Omni cluster name |
+| `--service-account` | `false` | Mint a Kubernetes SA token kubeconfig instead of OIDC |
+| `--user` | | Token `sub` (required with `--service-account`) |
+| `--ttl` | `8760h` (365d) | SA token TTL |
+| `--groups` | `system:masters` | SA token groups |
+| `--merge-existing` | `true` | Merge into existing output; `false` writes only this cluster |
+| `--force` | `false` | Overwrite existing file when `--merge-existing=false` |
+| `--rename-on-conflict` | `false` | Rename conflicting entries instead of overwriting |
+| `--activate-context` | `false` | Set `current-context` to this cluster |
+| `--grant-type` | `auto` | OIDC grant for non-SA kubeconfigs |
+| `--break-glass` | `false` | Bypass Omni when enabled for the account |
+| `--print-export` | `true` | Print `export KUBECONFIG=...` when `-o` is not `~/.kube/config` |
+
 ### Environment variables
 
 | Variable | Description |
 |----------|-------------|
 | `OMNICONFIG` | Omniconfig path |
 | `OMNI_ENDPOINT` | Override Omni API URL |
-| `OMNI_SERVICE_ACCOUNT` | Base64 service account (non-interactive) |
+| `OMNI_SERVICE_ACCOUNT_KEY` | Base64 Omni API service account (non-interactive tool auth; also `SIDERO_SERVICE_ACCOUNT_KEY`) |
 | `SIDEROV1_KEYS_DIR` | PGP keys directory |
 | `BROWSER` | Set to `echo` to print login URL instead of opening a browser |
 
@@ -341,6 +379,8 @@ omni-kubeconfig sync --rename-on-conflict      # keep both on name clash (incomi
 omni-kubeconfig sync --activate-context       # set current-context to last merged cluster
 omni-kubeconfig sync --merge-existing=false   # drop contexts from prior syncs not in this run
 omni-kubeconfig sync --grant-type authcode-keyboard
+omni-kubeconfig kubeconfig -c prod
+omni-kubeconfig kubeconfig --service-account -c prod --user ci-deploy -o ./prod-ci.kubeconfig --merge-existing=false --force
 ```
 
 ## Troubleshooting
@@ -357,8 +397,8 @@ omni-kubeconfig sync --grant-type authcode-keyboard
 ## How it works
 
 1. Connects to Omni (same client bootstrap as `omnictl`)
-2. Lists `Clusters.omni.sidero.dev` resources
-3. Downloads each cluster kubeconfig via the management API
+2. **`sync`**: lists `Clusters.omni.sidero.dev`, downloads each OIDC admin kubeconfig, merges
+3. **`kubeconfig`**: downloads one cluster kubeconfig (OIDC, or SA token with `--service-account`)
 4. Merges with [go-kubeconfig](https://github.com/siderolabs/go-kubeconfig) (into existing output when `--merge-existing`, default)
 5. Backs up existing output before writing
 
