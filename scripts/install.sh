@@ -5,13 +5,15 @@ set -euo pipefail
 REPO="${GITHUB_REPO:-Jubblin/omni-kubeconfig}"
 API_BASE="${GITHUB_API_URL:-https://api.github.com}"
 DOWNLOAD_BASE="${GITHUB_DOWNLOAD_URL:-https://github.com/${REPO}/releases/download}"
+LATEST_RELEASE_URL="${GITHUB_LATEST_URL:-https://github.com/${REPO}/releases/latest}"
 PROJECT_NAME="omni-kubeconfig"
 
 need_cmd() {
-  command -v "$1" >/dev/null 2>&1 || {
-    echo "error: required command not found: $1" >&2
+  local cmd="$1"
+  if ! command -v "${cmd}" >/dev/null 2>&1; then
+    echo "error: required command not found: ${cmd}" >&2
     exit 1
-  }
+  fi
 }
 
 sha256_file() {
@@ -53,6 +55,38 @@ default_install_dir() {
   echo "${HOME}/.local/bin"
 }
 
+tag_from_latest_redirect() {
+  curl -fsSI "${LATEST_RELEASE_URL}" 2>/dev/null \
+    | awk -F'/tag/' 'tolower($0) ~ /^location:/ { print $2; exit }' \
+    | tr -d '\r\n'
+}
+
+tag_from_api_latest() {
+  curl -fsSL \
+    -H "Accept: application/vnd.github+json" \
+    "${API_BASE}/repos/${REPO}/releases/latest" 2>/dev/null \
+    | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
+    | head -1
+}
+
+tag_from_api_list() {
+  curl -fsSL \
+    -H "Accept: application/vnd.github+json" \
+    "${API_BASE}/repos/${REPO}/releases?per_page=30" 2>/dev/null \
+    | awk '
+      /"tag_name"/ {
+        line = $0
+        sub(/.*"tag_name"[[:space:]]*:[[:space:]]*"/, "", line)
+        sub(/".*/, "", line)
+        tag = line
+      }
+      /"prerelease"[[:space:]]*:[[:space:]]*false/ && tag != "" {
+        print tag
+        exit
+      }
+    '
+}
+
 resolve_version() {
   if [[ -n "${VERSION:-}" ]]; then
     if [[ "${VERSION}" != v* ]]; then
@@ -62,12 +96,16 @@ resolve_version() {
     return
   fi
   need_cmd curl
-  local tag
-  tag="$(curl -fsSL "${API_BASE}/repos/${REPO}/releases/latest" \
-    | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
-    | head -1)"
+  local tag=""
+  tag="$(tag_from_latest_redirect)"
   if [[ -z "${tag}" ]]; then
-    echo "error: could not resolve latest release tag" >&2
+    tag="$(tag_from_api_latest)"
+  fi
+  if [[ -z "${tag}" ]]; then
+    tag="$(tag_from_api_list)"
+  fi
+  if [[ -z "${tag}" ]]; then
+    echo "error: could not resolve latest release tag (set VERSION=vX.Y.Z or use releases/latest/download/install.sh)" >&2
     exit 1
   fi
   echo "${tag}"

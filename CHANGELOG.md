@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - README quality badge now reflects CI **golangci-lint** (replaces Go Report Card); `make lint` falls back to `go run` when the binary is not installed
+- Install scripts resolve the latest stable release via GitHub web redirect (with API fallbacks); docs recommend `releases/latest/download/install.sh`
+
+### Fixed
+
+- Install script no longer fails when GitHub API `/releases/latest` returns 404 (e.g. rate limits or missing latest marker)
 
 ## [0.3.1] - 2026-07-28
 

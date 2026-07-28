@@ -7,6 +7,7 @@ $ErrorActionPreference = "Stop"
 $Repo = if ($env:GITHUB_REPO) { $env:GITHUB_REPO } else { "Jubblin/omni-kubeconfig" }
 $ApiBase = if ($env:GITHUB_API_URL) { $env:GITHUB_API_URL } else { "https://api.github.com" }
 $DownloadBase = if ($env:GITHUB_DOWNLOAD_URL) { $env:GITHUB_DOWNLOAD_URL } else { "https://github.com/$Repo/releases/download" }
+$LatestReleaseUrl = if ($env:GITHUB_LATEST_URL) { $env:GITHUB_LATEST_URL } else { "https://github.com/$Repo/releases/latest" }
 $ProjectName = "omni-kubeconfig"
 
 function Get-PlatformAsset {
@@ -23,16 +24,46 @@ function Get-InstallDir {
     return Join-Path $base "Programs\omni-kubeconfig"
 }
 
+function Get-TagFromLatestRedirect {
+    try {
+        $resp = Invoke-WebRequest -Uri $LatestReleaseUrl -MaximumRedirection 5 -UseBasicParsing
+        $uri = $resp.BaseResponse.ResponseUri.AbsoluteUri
+        if ($uri -match '/tag/(v[^/?#]+)') { return $Matches[1] }
+    } catch { }
+    return $null
+}
+
+function Get-TagFromApiLatest {
+    try {
+        $resp = Invoke-RestMethod -Uri "$ApiBase/repos/$Repo/releases/latest" -Headers @{ Accept = "application/vnd.github+json" }
+        if ($resp.tag_name) { return $resp.tag_name }
+    } catch { }
+    return $null
+}
+
+function Get-TagFromApiList {
+    try {
+        $resp = Invoke-RestMethod -Uri "$ApiBase/repos/$Repo/releases?per_page=30" -Headers @{ Accept = "application/vnd.github+json" }
+        foreach ($rel in $resp) {
+            if (-not $rel.prerelease -and $rel.tag_name) { return $rel.tag_name }
+        }
+    } catch { }
+    return $null
+}
+
 function Resolve-Version {
     if ($env:VERSION) {
         $v = $env:VERSION
         if (-not $v.StartsWith("v")) { $v = "v$v" }
         return $v
     }
-    $uri = "$ApiBase/repos/$Repo/releases/latest"
-    $resp = Invoke-RestMethod -Uri $uri -Headers @{ Accept = "application/vnd.github+json" }
-    if (-not $resp.tag_name) { throw "could not resolve latest release tag" }
-    return $resp.tag_name
+    $tag = Get-TagFromLatestRedirect
+    if (-not $tag) { $tag = Get-TagFromApiLatest }
+    if (-not $tag) { $tag = Get-TagFromApiList }
+    if (-not $tag) {
+        throw "could not resolve latest release tag (set `$env:VERSION or use releases/latest/download/install.ps1)"
+    }
+    return $tag
 }
 
 function Get-ExpectedSHA256 {

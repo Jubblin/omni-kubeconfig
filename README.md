@@ -26,13 +26,13 @@ Download admin kubeconfigs for every cluster on a [Sidero Omni](https://docs.sid
 ### One-click install (recommended)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Jubblin/omni-kubeconfig/main/scripts/install.sh | bash
+curl -fsSL https://github.com/Jubblin/omni-kubeconfig/releases/latest/download/install.sh | bash
 ```
 
 Windows (PowerShell):
 
 ```powershell
-irm https://raw.githubusercontent.com/Jubblin/omni-kubeconfig/main/scripts/install.ps1 | iex
+irm https://github.com/Jubblin/omni-kubeconfig/releases/latest/download/install.ps1 | iex
 ```
 
 Installs a checksum-verified binary to `~/.local/bin` (Unix) or `%LOCALAPPDATA%\Programs\omni-kubeconfig` (Windows). Add the directory to your `PATH` if prompted.
@@ -410,7 +410,7 @@ omni-kubeconfig sync --merge-existing=false   # drop contexts from prior syncs n
 omni-kubeconfig sync --grant-type authcode-keyboard
 omni-kubeconfig kubeconfig -c prod
 omni-kubeconfig kubeconfig --service-account -c prod --user ci-deploy -o ./prod-ci.kubeconfig --merge-existing=false --force
-curl -fsSL https://raw.githubusercontent.com/Jubblin/omni-kubeconfig/main/scripts/install.sh | bash
+curl -fsSL https://github.com/Jubblin/omni-kubeconfig/releases/latest/download/install.sh | bash
 omni-kubeconfig update
 omni-kubeconfig update --check
 omni-kubeconfig sync --no-update-check
