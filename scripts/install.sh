@@ -9,10 +9,11 @@ LATEST_RELEASE_URL="${GITHUB_LATEST_URL:-https://github.com/${REPO}/releases/lat
 PROJECT_NAME="omni-kubeconfig"
 
 need_cmd() {
-  command -v "$1" >/dev/null 2>&1 || {
-    echo "error: required command not found: $1" >&2
+  local cmd="$1"
+  if ! command -v "${cmd}" >/dev/null 2>&1; then
+    echo "error: required command not found: ${cmd}" >&2
     exit 1
-  }
+  fi
 }
 
 sha256_file() {

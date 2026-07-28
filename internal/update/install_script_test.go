@@ -34,16 +34,22 @@ func installScriptPath(t *testing.T) string {
 	return script
 }
 
-func newInstallMockServer(t *testing.T, releases []installReleaseFixture, latestTag string, apiLatest404 bool) *installMockServer {
+func mustMkdirAll(t *testing.T, path string) {
 	t.Helper()
-
-	goos, goarch := CurrentPlatform()
-	asset, err := AssetName(goos, goarch)
-	if err != nil {
-		t.Skip(err)
+	if err := os.MkdirAll(path, 0o755); err != nil {
+		t.Fatal(err)
 	}
+}
 
-	root := t.TempDir()
+func mustWriteFile(t *testing.T, path string, data []byte, perm os.FileMode) {
+	t.Helper()
+	if err := os.WriteFile(path, data, perm); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func writeInstallReleaseFixtures(t *testing.T, root, asset string, releases []installReleaseFixture) map[string]installReleaseFixture {
+	t.Helper()
 	byTag := make(map[string]installReleaseFixture, len(releases))
 	for _, rel := range releases {
 		sum, err := VerifySHA256Return(rel.payload)
@@ -51,26 +57,20 @@ func newInstallMockServer(t *testing.T, releases []installReleaseFixture, latest
 			t.Fatal(err)
 		}
 		releaseDir := filepath.Join(root, rel.tag)
-		if err := os.MkdirAll(releaseDir, 0o755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(releaseDir, asset), rel.payload, 0o755); err != nil {
-			t.Fatal(err)
-		}
-		sums := fmt.Sprintf("%s  %s\n", sum, asset)
-		if err := os.WriteFile(filepath.Join(releaseDir, "sha256sum.txt"), []byte(sums), 0o644); err != nil {
-			t.Fatal(err)
-		}
+		mustMkdirAll(t, releaseDir)
+		mustWriteFile(t, filepath.Join(releaseDir, asset), rel.payload, 0o755)
+		mustWriteFile(t, filepath.Join(releaseDir, "sha256sum.txt"), []byte(fmt.Sprintf("%s  %s\n", sum, asset)), 0o644)
 		byTag[rel.tag] = rel
 	}
+	return byTag
+}
 
-	latestJSON := fmt.Sprintf(`{"tag_name":"%s","prerelease":false}`, latestTag)
-	if err := os.MkdirAll(filepath.Join(root, "repos", DefaultRepo, "releases"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(root, "repos", DefaultRepo, "releases", "latest.json"), []byte(latestJSON), 0o644); err != nil {
-		t.Fatal(err)
-	}
+func writeInstallAPIFixtures(t *testing.T, root, latestTag string, releases []installReleaseFixture) {
+	t.Helper()
+	apiDir := filepath.Join(root, "repos", DefaultRepo, "releases")
+	mustMkdirAll(t, apiDir)
+	mustWriteFile(t, filepath.Join(apiDir, "latest.json"),
+		[]byte(fmt.Sprintf(`{"tag_name":"%s","prerelease":false}`, latestTag)), 0o644)
 
 	var listJSON strings.Builder
 	listJSON.WriteString("[")
@@ -78,15 +78,13 @@ func newInstallMockServer(t *testing.T, releases []installReleaseFixture, latest
 		if i > 0 {
 			listJSON.WriteString(",")
 		}
-		prerelease := "false"
-		fmt.Fprintf(&listJSON, `{"tag_name":"%s","prerelease":%s}`, rel.tag, prerelease)
+		fmt.Fprintf(&listJSON, `{"tag_name":"%s","prerelease":false}`, rel.tag)
 	}
 	listJSON.WriteString("]")
-	if err := os.WriteFile(filepath.Join(root, "repos", DefaultRepo, "releases", "list.json"), []byte(listJSON.String()), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	mustWriteFile(t, filepath.Join(apiDir, "list.json"), []byte(listJSON.String()), 0o644)
+}
 
-	mux := http.NewServeMux()
+func registerInstallMockHandlers(mux *http.ServeMux, root, latestTag string, apiLatest404 bool) {
 	mux.Handle("/", http.FileServer(http.Dir(root)))
 	mux.HandleFunc("/releases/latest", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodHead && r.Method != http.MethodGet {
@@ -106,6 +104,23 @@ func newInstallMockServer(t *testing.T, releases []installReleaseFixture, latest
 	mux.HandleFunc("/repos/"+DefaultRepo+"/releases", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, filepath.Join(root, "repos", DefaultRepo, "releases", "list.json"))
 	})
+}
+
+func newInstallMockServer(t *testing.T, releases []installReleaseFixture, latestTag string, apiLatest404 bool) *installMockServer {
+	t.Helper()
+
+	goos, goarch := CurrentPlatform()
+	asset, err := AssetName(goos, goarch)
+	if err != nil {
+		t.Skip(err)
+	}
+
+	root := t.TempDir()
+	byTag := writeInstallReleaseFixtures(t, root, asset, releases)
+	writeInstallAPIFixtures(t, root, latestTag, releases)
+
+	mux := http.NewServeMux()
+	registerInstallMockHandlers(mux, root, latestTag, apiLatest404)
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 

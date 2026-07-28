@@ -36,6 +36,8 @@ func main() {
 	}
 }
 
+type clientOptsFunc func() omni.ClientOptions
+
 func newRootCmd() *cobra.Command {
 	var (
 		omniconfig            string
@@ -86,15 +88,55 @@ Global flags apply to all commands (see --help on each command for command-speci
 	root.PersistentFlags().BoolVar(&forceUpdateCheck, "check-updates", false,
 		"force update check ignoring the 24h cache")
 
-	clientOpts := func() omni.ClientOptions {
+	clientOpts := clientOptsFunc(func() omni.ClientOptions {
 		return omni.ClientOptions{
 			Omniconfig:            omniconfig,
 			Context:               contextName,
 			InsecureSkipTLSVerify: insecureSkipTLSVerify,
 			SideroV1KeysDir:       sideroV1KeysDir,
 		}
-	}
+	})
 
+	defaultOutput, _ := defaultKubeconfigPath()
+	root.AddCommand(newAuthCmd(clientOpts))
+	root.AddCommand(newSyncCmd(clientOpts, defaultOutput))
+	root.AddCommand(newKubeconfigCmd(clientOpts, defaultOutput))
+	root.AddCommand(newUpdateCmd(&noUpdateCheck))
+
+	return root
+}
+
+func newAuthCmd(clientOpts clientOptsFunc) *cobra.Command {
+	var authForce bool
+
+	cmd := &cobra.Command{
+		Use:   "auth",
+		Short: "Authenticate to Omni (SideroV1 PGP + browser login, same as omnictl)",
+		Long: `Authenticate to the Omni API using the configured omniconfig context.
+
+On first use or when the PGP key is expired, this opens a browser window to log in
+(identity provider via Omni), registers a new key, and saves it under ~/.talos/keys.
+
+Flags:
+      --force   Delete the existing PGP key and force a new browser login
+
+Global flags: --omniconfig, --context, --insecure-skip-tls-verify, --siderov1-keys-dir
+
+Environment:
+  BROWSER=echo   Print the login URL instead of opening a browser`,
+		Example: `  omni-kubeconfig auth
+  BROWSER=echo omni-kubeconfig auth
+  omni-kubeconfig auth --force --context default`,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return omni.Authenticate(clientOpts(), authForce)
+		},
+	}
+	cmd.Flags().BoolVar(&authForce, "force", false,
+		"delete the existing PGP key for this context/identity and force a new browser login")
+	return cmd
+}
+
+func newSyncCmd(clientOpts clientOptsFunc, defaultOutput string) *cobra.Command {
 	var (
 		output           string
 		clusters         []string
@@ -106,7 +148,7 @@ Global flags apply to all commands (see --help on each command for command-speci
 		mergeExisting    bool
 	)
 
-	syncCmd := &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "sync",
 		Short: "Download kubeconfigs for all clusters and merge into one file",
 		Long: `Connects to Omni, lists clusters (or only those named with --cluster), downloads each
@@ -167,68 +209,43 @@ Global flags: --omniconfig, --context, --insecure-skip-tls-verify, --siderov1-ke
 		},
 	}
 
-	defaultOutput, _ := defaultKubeconfigPath()
-	syncCmd.Flags().StringVarP(&output, "output", "o", defaultOutput,
+	cmd.Flags().StringVarP(&output, "output", "o", defaultOutput,
 		"path for the merged kubeconfig file")
-	syncCmd.Flags().StringSliceVarP(&clusters, "cluster", "c", nil,
+	cmd.Flags().StringSliceVarP(&clusters, "cluster", "c", nil,
 		"only sync these Omni cluster names (repeat flag for multiple; default: all)")
-	syncCmd.Flags().BoolVar(&mergeExisting, "merge-existing", true,
+	cmd.Flags().BoolVar(&mergeExisting, "merge-existing", true,
 		"load existing output file and merge new downloads; false replaces file with clusters synced this run")
-	syncCmd.Flags().BoolVar(&renameOnConflict, "rename-on-conflict", false,
+	cmd.Flags().BoolVar(&renameOnConflict, "rename-on-conflict", false,
 		"on merge conflict, rename incoming cluster/context/user instead of overwriting")
-	syncCmd.Flags().BoolVar(&activateContext, "activate-context", false,
+	cmd.Flags().BoolVar(&activateContext, "activate-context", false,
 		"set current-context to the last cluster merged this run; default preserves existing (activates when current-context is empty)")
-	syncCmd.Flags().StringVar(&grantType, "grant-type", "auto",
+	cmd.Flags().StringVar(&grantType, "grant-type", "auto",
 		"OIDC grant type embedded in downloaded kubeconfigs (auto, authcode, authcode-keyboard)")
-	syncCmd.Flags().BoolVar(&dryRun, "dry-run", false,
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false,
 		"list clusters that would be synced without downloading or writing the output file")
-	syncCmd.Flags().BoolVar(&printExport, "print-export", true,
+	cmd.Flags().BoolVar(&printExport, "print-export", true,
 		"print export KUBECONFIG=<path> after sync when -o is not ~/.kube/config")
+	return cmd
+}
 
-	var authForce bool
-
-	authCmd := &cobra.Command{
-		Use:   "auth",
-		Short: "Authenticate to Omni (SideroV1 PGP + browser login, same as omnictl)",
-		Long: `Authenticate to the Omni API using the configured omniconfig context.
-
-On first use or when the PGP key is expired, this opens a browser window to log in
-(identity provider via Omni), registers a new key, and saves it under ~/.talos/keys.
-
-Flags:
-      --force   Delete the existing PGP key and force a new browser login
-
-Global flags: --omniconfig, --context, --insecure-skip-tls-verify, --siderov1-keys-dir
-
-Environment:
-  BROWSER=echo   Print the login URL instead of opening a browser`,
-		Example: `  omni-kubeconfig auth
-  BROWSER=echo omni-kubeconfig auth
-  omni-kubeconfig auth --force --context default`,
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return omni.Authenticate(clientOpts(), authForce)
-		},
-	}
-	authCmd.Flags().BoolVar(&authForce, "force", false,
-		"delete the existing PGP key for this context/identity and force a new browser login")
-
+func newKubeconfigCmd(clientOpts clientOptsFunc, defaultOutput string) *cobra.Command {
 	var (
-		kubeOutput           string
-		kubeCluster          string
-		kubeServiceAccount   bool
-		kubeUser             string
-		kubeTTL              time.Duration
-		kubeGroups           []string
-		kubeForce            bool
-		kubeRenameOnConflict bool
-		kubeActivateContext  bool
-		kubeGrantType        string
-		kubeBreakGlass       bool
-		kubePrintExport      bool
-		kubeMergeExisting    bool
+		output           string
+		cluster          string
+		serviceAccount   bool
+		user             string
+		ttl              time.Duration
+		groups           []string
+		force            bool
+		renameOnConflict bool
+		activateContext  bool
+		grantType        string
+		breakGlass       bool
+		printExport      bool
+		mergeExisting    bool
 	)
 
-	kubeCmd := &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "kubeconfig",
 		Short: "Download a kubeconfig for one Omni cluster",
 		Long: `Download a kubeconfig for a single cluster via the Omni management API.
@@ -260,70 +277,79 @@ Global flags: --omniconfig, --context, --insecure-skip-tls-verify, --siderov1-ke
   omni-kubeconfig kubeconfig --service-account -c prod --user ci-deploy -o ./prod-ci.kubeconfig
   omni-kubeconfig kubeconfig --service-account -c prod --user ci --ttl 720h --groups system:masters`,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			resolvedOutput, err := resolveOutputPath(kubeOutput)
-			if err != nil {
-				return err
-			}
-
-			printKubeconfigExport, err := shouldPrintKubeconfigExport(resolvedOutput, kubePrintExport)
-			if err != nil {
-				return err
-			}
-
-			return omni.Kubeconfig(omni.KubeconfigOptions{
-				ClientOptions:    clientOpts(),
-				OutputPath:       resolvedOutput,
-				Cluster:          kubeCluster,
-				ServiceAccount:   kubeServiceAccount,
-				User:             kubeUser,
-				TTL:              kubeTTL,
-				Groups:           kubeGroups,
-				Force:            kubeForce,
-				RenameOnConflict: kubeRenameOnConflict,
-				ActivateContext:  kubeActivateContext,
-				GrantType:        kubeGrantType,
-				BreakGlass:       kubeBreakGlass,
-				PrintExport:      printKubeconfigExport,
-				MergeExisting:    kubeMergeExisting,
+			return runKubeconfig(clientOpts, omni.KubeconfigOptions{
+				OutputPath:       output,
+				Cluster:          cluster,
+				ServiceAccount:   serviceAccount,
+				User:             user,
+				TTL:              ttl,
+				Groups:           groups,
+				Force:            force,
+				RenameOnConflict: renameOnConflict,
+				ActivateContext:  activateContext,
+				GrantType:        grantType,
+				BreakGlass:       breakGlass,
+				PrintExport:      printExport,
+				MergeExisting:    mergeExisting,
 			})
 		},
 	}
 
-	kubeCmd.Flags().StringVarP(&kubeOutput, "output", "o", defaultOutput,
+	cmd.Flags().StringVarP(&output, "output", "o", defaultOutput,
 		"path for the kubeconfig file")
-	kubeCmd.Flags().StringVarP(&kubeCluster, "cluster", "c", "",
+	cmd.Flags().StringVarP(&cluster, "cluster", "c", "",
 		"Omni cluster name (required)")
-	kubeCmd.Flags().BoolVar(&kubeServiceAccount, "service-account", false,
+	cmd.Flags().BoolVar(&serviceAccount, "service-account", false,
 		"create a Kubernetes service-account token kubeconfig instead of an OIDC user kubeconfig")
-	kubeCmd.Flags().StringVar(&kubeUser, "user", "",
+	cmd.Flags().StringVar(&user, "user", "",
 		"user (sub) for the service account token; required with --service-account")
-	kubeCmd.Flags().DurationVar(&kubeTTL, "ttl", omni.DefaultServiceAccountTTL,
+	cmd.Flags().DurationVar(&ttl, "ttl", omni.DefaultServiceAccountTTL,
 		"TTL for the service account token (only used with --service-account)")
-	kubeCmd.Flags().StringSliceVar(&kubeGroups, "groups", append([]string(nil), omni.DefaultServiceAccountGroups...),
+	cmd.Flags().StringSliceVar(&groups, "groups", append([]string(nil), omni.DefaultServiceAccountGroups...),
 		"groups claim for the service account token (only used with --service-account)")
-	kubeCmd.Flags().BoolVar(&kubeMergeExisting, "merge-existing", true,
+	cmd.Flags().BoolVar(&mergeExisting, "merge-existing", true,
 		"load existing output file and merge; false replaces/writes only this cluster")
-	kubeCmd.Flags().BoolVar(&kubeForce, "force", false,
+	cmd.Flags().BoolVar(&force, "force", false,
 		"overwrite existing output when --merge-existing=false")
-	kubeCmd.Flags().BoolVar(&kubeRenameOnConflict, "rename-on-conflict", false,
+	cmd.Flags().BoolVar(&renameOnConflict, "rename-on-conflict", false,
 		"on merge conflict, rename incoming cluster/context/user instead of overwriting")
-	kubeCmd.Flags().BoolVar(&kubeActivateContext, "activate-context", false,
+	cmd.Flags().BoolVar(&activateContext, "activate-context", false,
 		"set current-context to this cluster; default preserves existing (activates when empty)")
-	kubeCmd.Flags().StringVar(&kubeGrantType, "grant-type", "auto",
+	cmd.Flags().StringVar(&grantType, "grant-type", "auto",
 		"OIDC grant type embedded in non-service-account kubeconfigs (auto, authcode, authcode-keyboard)")
-	kubeCmd.Flags().BoolVar(&kubeBreakGlass, "break-glass", false,
+	cmd.Flags().BoolVar(&breakGlass, "break-glass", false,
 		"request a kubeconfig that bypasses Omni when enabled for the account")
-	kubeCmd.Flags().BoolVar(&kubePrintExport, "print-export", true,
+	cmd.Flags().BoolVar(&printExport, "print-export", true,
 		"print export KUBECONFIG=<path> when -o is not ~/.kube/config")
-	_ = kubeCmd.MarkFlagRequired("cluster")
+	_ = cmd.MarkFlagRequired("cluster")
+	return cmd
+}
 
+func runKubeconfig(clientOpts clientOptsFunc, opts omni.KubeconfigOptions) error {
+	resolvedOutput, err := resolveOutputPath(opts.OutputPath)
+	if err != nil {
+		return err
+	}
+
+	printKubeconfigExport, err := shouldPrintKubeconfigExport(resolvedOutput, opts.PrintExport)
+	if err != nil {
+		return err
+	}
+
+	opts.ClientOptions = clientOpts()
+	opts.OutputPath = resolvedOutput
+	opts.PrintExport = printKubeconfigExport
+	return omni.Kubeconfig(opts)
+}
+
+func newUpdateCmd(noUpdateCheck *bool) *cobra.Command {
 	var (
-		updateVersion string
-		updateInstall string
-		updateCheck   bool
+		version    string
+		installDir string
+		check      bool
 	)
 
-	updateCmd := &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Download and install a release of omni-kubeconfig",
 		Long: `Install or upgrade omni-kubeconfig from GitHub releases.
@@ -337,58 +363,63 @@ Examples:
   omni-kubeconfig update --version v0.3.0
   omni-kubeconfig update --install-dir ~/.local/bin`,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			cfg := update.Config{Repo: update.DefaultRepo}
-			current := appversion.Version
-
-			if updateCheck {
-				res, err := update.Check(context.Background(), cfg, current, update.CheckOptions{
-					SkipCheck:  noUpdateCheck,
-					ForceCheck: true,
-				})
-				if err != nil {
-					return err
-				}
-				if !res.Newer {
-					fmt.Fprintf(os.Stderr, "omni-kubeconfig %s is up to date (latest %s)\n",
-						normalizeVersion(current), res.Latest.Version)
-					return nil
-				}
-				return fmt.Errorf("update available: %s (current %s)", res.Latest.Version, normalizeVersion(current))
-			}
-
-			opts := update.InstallOptions{TargetPath: updateInstall}
-			if updateVersion != "" {
-				tag := updateVersion
-				if tag[0] != 'v' {
-					tag = "v" + tag
-				}
-				opts.Tag = tag
-				return update.InstallRelease(context.Background(), cfg, opts)
-			}
-			if updateInstall != "" {
-				dir, err := filepath.Abs(updateInstall)
-				if err != nil {
-					return err
-				}
-				goos, _ := update.CurrentPlatform()
-				opts.TargetPath = filepath.Join(dir, update.InstalledBinaryName(goos))
-			}
-			return update.InstallLatest(context.Background(), cfg, opts)
+			return runUpdate(*noUpdateCheck, check, version, installDir)
 		},
 	}
-	updateCmd.Flags().StringVar(&updateVersion, "version", "",
+	cmd.Flags().StringVar(&version, "version", "",
 		"install a specific release tag (e.g. v0.3.0) instead of latest stable")
-	updateCmd.Flags().StringVar(&updateInstall, "install-dir", "",
+	cmd.Flags().StringVar(&installDir, "install-dir", "",
 		"install to this directory instead of replacing the running executable")
-	updateCmd.Flags().BoolVar(&updateCheck, "check", false,
+	cmd.Flags().BoolVar(&check, "check", false,
 		"report whether a newer stable release exists (exit 1 if outdated)")
+	return cmd
+}
 
-	root.AddCommand(authCmd)
-	root.AddCommand(syncCmd)
-	root.AddCommand(kubeCmd)
-	root.AddCommand(updateCmd)
+func runUpdate(noUpdateCheck, check bool, version, installDir string) error {
+	cfg := update.Config{Repo: update.DefaultRepo}
+	current := appversion.Version
 
-	return root
+	if check {
+		return runUpdateCheck(cfg, current, noUpdateCheck)
+	}
+
+	opts := update.InstallOptions{TargetPath: installDir}
+	if version != "" {
+		opts.Tag = normalizeReleaseTag(version)
+		return update.InstallRelease(context.Background(), cfg, opts)
+	}
+	if installDir != "" {
+		dir, err := filepath.Abs(installDir)
+		if err != nil {
+			return err
+		}
+		goos, _ := update.CurrentPlatform()
+		opts.TargetPath = filepath.Join(dir, update.InstalledBinaryName(goos))
+	}
+	return update.InstallLatest(context.Background(), cfg, opts)
+}
+
+func runUpdateCheck(cfg update.Config, current string, noUpdateCheck bool) error {
+	res, err := update.Check(context.Background(), cfg, current, update.CheckOptions{
+		SkipCheck:  noUpdateCheck,
+		ForceCheck: true,
+	})
+	if err != nil {
+		return err
+	}
+	if !res.Newer {
+		fmt.Fprintf(os.Stderr, "omni-kubeconfig %s is up to date (latest %s)\n",
+			normalizeVersion(current), res.Latest.Version)
+		return nil
+	}
+	return fmt.Errorf("update available: %s (current %s)", res.Latest.Version, normalizeVersion(current))
+}
+
+func normalizeReleaseTag(version string) string {
+	if version[0] != 'v' {
+		return "v" + version
+	}
+	return version
 }
 
 func maybeCheckForUpdates(cmd *cobra.Command, noUpdateCheck, forceUpdateCheck bool) error {
