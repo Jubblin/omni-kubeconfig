@@ -82,17 +82,17 @@ The image contains only the `omni-kubeconfig` binary (distroless, no shell). Mou
 
 | Tag | When |
 |-----|------|
-| `v0.2.0-snapshot` | Floating latest from `main` for the current release line (after Trivy) |
-| `v0.2.0-snapshot.N` | Immutable numbered snapshot for a specific `main` build (after Trivy) |
+| `v0.3.0-snapshot` | Floating latest from `main` for the current release line (after Trivy) |
+| `v0.3.0-snapshot.N` | Immutable numbered snapshot for a specific `main` build (after Trivy) |
 | `latest` | Most recent release (after Trivy) |
 | `0.1.2` | Exact semver (no `v` prefix), after Trivy |
 | `0.1` | Major.minor alias on release |
 | `sha-<commit>` | Immutable digest pointer (pushed before scan; safe if scan fails) |
 
 ```bash
-# After merging to main (release line v0.2.0)
-docker pull ghcr.io/jubblin/omni-kubeconfig:v0.2.0-snapshot
-docker pull ghcr.io/jubblin/omni-kubeconfig:v0.2.0-snapshot.3
+# After merging to main (release line v0.3.0)
+docker pull ghcr.io/jubblin/omni-kubeconfig:v0.3.0-snapshot
+docker pull ghcr.io/jubblin/omni-kubeconfig:v0.3.0-snapshot.3
 
 # After tagging v0.1.2
 docker pull ghcr.io/jubblin/omni-kubeconfig:0.1.2
@@ -239,8 +239,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ```bash
 # Ensure CHANGELOG.md is updated, then:
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.3.0
+git push origin v0.3.0
 ```
 
 GoReleaser publishes bare binaries (naming matches `omnictl-*`) for darwin/linux amd64+arm64 and windows amd64 only, and builds/pushes the multi-arch container image via `dockers_v2`. See [.goreleaser.yaml](.goreleaser.yaml).
