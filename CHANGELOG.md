@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-07-28
+
 ### Changed
 
 - README quality badge now reflects CI **golangci-lint** (replaces Go Report Card); `make lint` falls back to `go run` when the binary is not installed
@@ -69,7 +71,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Omni API v2 compatibility
 - Makefile build with semver injection from git tags
 
-[Unreleased]: https://github.com/Jubblin/omni-kubeconfig/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/Jubblin/omni-kubeconfig/compare/v0.3.2...HEAD
+[0.3.2]: https://github.com/Jubblin/omni-kubeconfig/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/Jubblin/omni-kubeconfig/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/Jubblin/omni-kubeconfig/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Jubblin/omni-kubeconfig/compare/v0.1.2...v0.2.0
