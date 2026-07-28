@@ -3,6 +3,8 @@ package main
 import (
 	"path/filepath"
 	"testing"
+
+	"github.com/Jubblin/omni-kubeconfig/internal/omni"
 )
 
 func testHome(t *testing.T) string {
@@ -124,5 +126,42 @@ func TestSyncCommandActivateContextDefaultFalse(t *testing.T) {
 	}
 	if flag.DefValue != "false" {
 		t.Fatalf("activate-context default = %q, want false", flag.DefValue)
+	}
+}
+
+func TestKubeconfigCommandFlags(t *testing.T) {
+	home := testHome(t)
+
+	cmd := newRootCmd()
+	kubeCmd, _, err := cmd.Find([]string{"kubeconfig"})
+	if err != nil {
+		t.Fatalf("Find kubeconfig: %v", err)
+	}
+
+	cluster := kubeCmd.Flags().Lookup("cluster")
+	if cluster == nil {
+		t.Fatal("cluster flag not found")
+	}
+
+	output := kubeCmd.Flags().Lookup("output")
+	if output == nil {
+		t.Fatal("output flag not found")
+	}
+	wantOut := filepath.Join(home, ".kube", "config")
+	if output.DefValue != wantOut {
+		t.Fatalf("output default = %q, want %q", output.DefValue, wantOut)
+	}
+
+	ttl := kubeCmd.Flags().Lookup("ttl")
+	if ttl == nil {
+		t.Fatal("ttl flag not found")
+	}
+	if ttl.DefValue != omni.DefaultServiceAccountTTL.String() {
+		t.Fatalf("ttl default = %q, want %q", ttl.DefValue, omni.DefaultServiceAccountTTL.String())
+	}
+
+	sa := kubeCmd.Flags().Lookup("service-account")
+	if sa == nil || sa.DefValue != "false" {
+		t.Fatalf("service-account default = %v", sa)
 	}
 }
