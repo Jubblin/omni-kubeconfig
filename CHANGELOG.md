@@ -9,8 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Service-account `kubeconfig` names cluster `omni-{cluster}`, user/context `omni-{cluster}-sa-{user}`; omit `--user` to auto-generate a UUID v8 subject
-
+- Service-account `kubeconfig` renames Omni's `omni-{cluster}-{user}` entries to `omni-{cluster}` by default (matches cluster-scoped naming; override with `--force-context-name`)
 ## [0.3.3] - 2026-07-30
 
 ### Changed

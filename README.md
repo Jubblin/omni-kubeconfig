@@ -368,13 +368,13 @@ Run the same commands inside the published image; mount `~/.talos` and `~/.kube`
 | `-o`, `--output` | `~/.kube/config` | Kubeconfig path |
 | `-c`, `--cluster` | (required) | Omni cluster name |
 | `--service-account` | `false` | Mint a Kubernetes SA token kubeconfig instead of OIDC |
-| `--user` | UUID v8 if omitted | Token `sub`; kubeconfig user/context `omni-{cluster}-sa-{user}` |
+| `--user` | | Token `sub` (required with `--service-account`) |
 | `--ttl` | `8760h` (365d) | SA token TTL |
 | `--groups` | `system:masters` | SA token groups |
 | `--merge-existing` | `true` | Merge into existing output; `false` writes only this cluster |
 | `--force` | `false` | Overwrite existing file when `--merge-existing=false` |
 | `--rename-on-conflict` | `false` | Rename conflicting entries instead of overwriting |
-| `--force-context-name` | *(SA: `omni-{cluster}-sa-{user}`)* | Override context name only |
+| `--force-context-name` | *(SA: `omni-{cluster}`)* | Override cluster/context/auth name (`omnictl` parity) |
 | `--activate-context` | `false` | Set `current-context` to this cluster |
 | `--grant-type` | *(omitted)* | OIDC grant for non-SA kubeconfigs; set explicitly when needed |
 | `--break-glass` | `false` | Bypass Omni when enabled for the account |
