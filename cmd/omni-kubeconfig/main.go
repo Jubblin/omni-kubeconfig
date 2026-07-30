@@ -239,6 +239,7 @@ func newKubeconfigCmd(clientOpts clientOptsFunc, defaultOutput string) *cobra.Co
 		force            bool
 		renameOnConflict bool
 		activateContext  bool
+		forceContextName string
 		grantType        string
 		breakGlass       bool
 		printExport      bool
@@ -267,6 +268,7 @@ Flags:
       --merge-existing        Merge into existing output (default: true)
       --force                 Overwrite existing file when --merge-existing=false
       --rename-on-conflict    Rename conflicting entries instead of overwriting
+      --force-context-name    Override cluster/context/auth name (service-account: default omni-{cluster})
       --activate-context      Set current-context to this cluster
       --grant-type string     OIDC grant type for non-SA kubeconfigs (auto, authcode, authcode-keyboard); omit for kubelogin defaults (omnictl-compatible)
       --break-glass           Bypass Omni when enabled for the account
@@ -287,6 +289,7 @@ Global flags: --omniconfig, --context, --insecure-skip-tls-verify, --siderov1-ke
 				Force:            force,
 				RenameOnConflict: renameOnConflict,
 				ActivateContext:  activateContext,
+				ForceContextName: forceContextName,
 				GrantType:        grantType,
 				BreakGlass:       breakGlass,
 				PrintExport:      printExport,
@@ -313,6 +316,8 @@ Global flags: --omniconfig, --context, --insecure-skip-tls-verify, --siderov1-ke
 		"overwrite existing output when --merge-existing=false")
 	cmd.Flags().BoolVar(&renameOnConflict, "rename-on-conflict", false,
 		"on merge conflict, rename incoming cluster/context/user instead of overwriting")
+	cmd.Flags().StringVar(&forceContextName, "force-context-name", "",
+		"override cluster/context/auth name in the output (with --service-account, defaults to omni-{cluster} instead of omni-{cluster}-{user})")
 	cmd.Flags().BoolVar(&activateContext, "activate-context", false,
 		"set current-context to this cluster; default preserves existing (activates when empty)")
 	cmd.Flags().StringVar(&grantType, "grant-type", "",

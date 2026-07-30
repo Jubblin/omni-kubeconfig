@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Service-account `kubeconfig` renames Omni's `omni-{cluster}-{user}` entries to `omni-{cluster}` by default (matches cluster-scoped naming; override with `--force-context-name`)
 ## [0.3.3] - 2026-07-30
 
 ### Changed
