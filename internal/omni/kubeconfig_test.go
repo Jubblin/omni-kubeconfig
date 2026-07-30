@@ -24,13 +24,12 @@ func TestKubeconfigOptionsValidate(t *testing.T) {
 			wantErr: "--cluster is required",
 		},
 		{
-			name: "service account without user",
+			name: "service account without user ok",
 			opts: KubeconfigOptions{
 				Cluster:        "prod",
 				ServiceAccount: true,
 				TTL:            DefaultServiceAccountTTL,
 			},
-			wantErr: "--user is required when --service-account is set",
 		},
 		{
 			name: "service account with non-positive ttl",
