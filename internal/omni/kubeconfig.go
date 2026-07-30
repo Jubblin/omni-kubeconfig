@@ -31,6 +31,7 @@ type KubeconfigOptions struct {
 	Force            bool // overwrite existing file when not merging
 	RenameOnConflict bool
 	ActivateContext  bool
+	ForceContextName string
 	GrantType        string
 	BreakGlass       bool
 	PrintExport      bool
@@ -87,6 +88,13 @@ func downloadKubeconfig(ctx context.Context, c *client.Client, opts KubeconfigOp
 			return fmt.Errorf("cluster %q not found", opts.Cluster)
 		}
 		return fmt.Errorf("download kubeconfig for %q: %w", opts.Cluster, err)
+	}
+
+	if opts.ServiceAccount {
+		data, err = normalizeServiceAccountKubeconfig(data, opts)
+		if err != nil {
+			return err
+		}
 	}
 
 	merger, err := mergerForSync(outputPath, opts.MergeExisting)

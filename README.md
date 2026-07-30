@@ -374,6 +374,7 @@ Run the same commands inside the published image; mount `~/.talos` and `~/.kube`
 | `--merge-existing` | `true` | Merge into existing output; `false` writes only this cluster |
 | `--force` | `false` | Overwrite existing file when `--merge-existing=false` |
 | `--rename-on-conflict` | `false` | Rename conflicting entries instead of overwriting |
+| `--force-context-name` | *(SA: `omni-{cluster}`)* | Override cluster/context/auth name (`omnictl` parity) |
 | `--activate-context` | `false` | Set `current-context` to this cluster |
 | `--grant-type` | *(omitted)* | OIDC grant for non-SA kubeconfigs; set explicitly when needed |
 | `--break-glass` | `false` | Bypass Omni when enabled for the account |
