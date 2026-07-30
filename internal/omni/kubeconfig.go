@@ -43,9 +43,6 @@ func (opts KubeconfigOptions) Validate() error {
 	if opts.Cluster == "" {
 		return fmt.Errorf("--cluster is required")
 	}
-	if opts.ServiceAccount && opts.User == "" {
-		return fmt.Errorf("--user is required when --service-account is set")
-	}
 	if opts.ServiceAccount && opts.TTL <= 0 {
 		return fmt.Errorf("--ttl must be positive when --service-account is set")
 	}
@@ -65,6 +62,11 @@ func Kubeconfig(opts KubeconfigOptions) error {
 }
 
 func downloadKubeconfig(ctx context.Context, c *client.Client, opts KubeconfigOptions) error {
+	var err error
+	if opts, err = ensureServiceAccountUser(opts); err != nil {
+		return err
+	}
+
 	names, err := listClusterNames(ctx, c, []string{opts.Cluster})
 	if err != nil {
 		return err
