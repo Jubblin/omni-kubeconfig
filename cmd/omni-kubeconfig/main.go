@@ -262,11 +262,13 @@ Flags:
   -o, --output string         Path for the kubeconfig (default: ~/.kube/config)
   -c, --cluster string        Omni cluster name (required)
       --service-account       Request a service-account token kubeconfig
-      --user string           Token subject for --service-account (default: UUID v8)
+      --user string           Token subject (required with --service-account)
+      --ttl duration          Service account token TTL (default: 8760h / 365d)
+      --groups strings        Token groups (default: system:masters)
       --merge-existing        Merge into existing output (default: true)
       --force                 Overwrite existing file when --merge-existing=false
       --rename-on-conflict    Rename conflicting entries instead of overwriting
-      --force-context-name    Override context name (cluster omni-{cluster}, user omni-{cluster}-sa-{user})
+      --force-context-name    Override cluster/context/auth name (service-account: default omni-{cluster})
       --activate-context      Set current-context to this cluster
       --grant-type string     OIDC grant type for non-SA kubeconfigs (auto, authcode, authcode-keyboard); omit for kubelogin defaults (omnictl-compatible)
       --break-glass           Bypass Omni when enabled for the account
@@ -303,7 +305,7 @@ Global flags: --omniconfig, --context, --insecure-skip-tls-verify, --siderov1-ke
 	cmd.Flags().BoolVar(&serviceAccount, "service-account", false,
 		"create a Kubernetes service-account token kubeconfig instead of an OIDC user kubeconfig")
 	cmd.Flags().StringVar(&user, "user", "",
-		"token subject for --service-account (default: generated UUID v8); kubeconfig user name becomes omni-{cluster}-sa-{user}")
+		"user (sub) for the service account token; required with --service-account")
 	cmd.Flags().DurationVar(&ttl, "ttl", omni.DefaultServiceAccountTTL,
 		"TTL for the service account token (only used with --service-account)")
 	cmd.Flags().StringSliceVar(&groups, "groups", append([]string(nil), omni.DefaultServiceAccountGroups...),
@@ -315,7 +317,7 @@ Global flags: --omniconfig, --context, --insecure-skip-tls-verify, --siderov1-ke
 	cmd.Flags().BoolVar(&renameOnConflict, "rename-on-conflict", false,
 		"on merge conflict, rename incoming cluster/context/user instead of overwriting")
 	cmd.Flags().StringVar(&forceContextName, "force-context-name", "",
-		"override context name (cluster remains omni-{cluster}; user/auth omni-{cluster}-sa-{user})")
+		"override cluster/context/auth name in the output (with --service-account, defaults to omni-{cluster} instead of omni-{cluster}-{user})")
 	cmd.Flags().BoolVar(&activateContext, "activate-context", false,
 		"set current-context to this cluster; default preserves existing (activates when empty)")
 	cmd.Flags().StringVar(&grantType, "grant-type", "",

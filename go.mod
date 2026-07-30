@@ -5,7 +5,6 @@ go 1.26.5
 require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cosi-project/runtime v1.16.2
-	github.com/google/uuid v1.6.0
 	github.com/siderolabs/go-api-signature v0.3.13
 	github.com/siderolabs/go-kubeconfig v0.1.2
 	github.com/siderolabs/omni/client v1.9.3
@@ -50,6 +49,7 @@ require (
 	github.com/google/cel-go v0.28.1 // indirect
 	github.com/google/gnostic-models v0.7.1 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.29.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
