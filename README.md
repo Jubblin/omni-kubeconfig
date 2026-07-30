@@ -357,7 +357,7 @@ Run the same commands inside the published image; mount `~/.talos` and `~/.kube`
 | `--merge-existing` | `true` | Load existing output and merge; `false` replaces with clusters synced this run |
 | `--rename-on-conflict` | `false` | Rename conflicting entries instead of overwriting (default overwrites) |
 | `--activate-context` | `false` | Set `current-context` to the last cluster merged; default preserves existing (activates on empty/`--merge-existing=false` cold start) |
-| `--grant-type` | `auto` | OIDC grant: `auto`, `authcode`, `authcode-keyboard` |
+| `--grant-type` | *(omitted)* | OIDC grant: `auto`, `authcode`, `authcode-keyboard`; omit for kubelogin defaults (matches `omnictl`) |
 | `--dry-run` | `false` | List clusters only |
 | `--print-export` | `true` | Print `export KUBECONFIG=...` when `-o` is not `~/.kube/config` |
 
@@ -375,7 +375,7 @@ Run the same commands inside the published image; mount `~/.talos` and `~/.kube`
 | `--force` | `false` | Overwrite existing file when `--merge-existing=false` |
 | `--rename-on-conflict` | `false` | Rename conflicting entries instead of overwriting |
 | `--activate-context` | `false` | Set `current-context` to this cluster |
-| `--grant-type` | `auto` | OIDC grant for non-SA kubeconfigs |
+| `--grant-type` | *(omitted)* | OIDC grant for non-SA kubeconfigs; set explicitly when needed |
 | `--break-glass` | `false` | Bypass Omni when enabled for the account |
 | `--print-export` | `true` | Print `export KUBECONFIG=...` when `-o` is not `~/.kube/config` |
 

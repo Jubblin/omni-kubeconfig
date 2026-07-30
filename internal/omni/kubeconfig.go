@@ -140,13 +140,18 @@ func kubeconfigAPIOptions(opts KubeconfigOptions) []management.KubeconfigOption 
 		out = append(out, management.WithServiceAccount(opts.TTL, opts.User, groups...))
 	}
 
-	if opts.GrantType != "" {
-		out = append(out, management.WithGrantType(opts.GrantType))
-	}
+	out = appendGrantTypeOptions(out, opts.GrantType)
 
 	if opts.BreakGlass {
 		out = append(out, management.WithBreakGlassKubeconfig(true))
 	}
 
+	return out
+}
+
+func appendGrantTypeOptions(out []management.KubeconfigOption, grantType string) []management.KubeconfigOption {
+	if grantType != "" {
+		return append(out, management.WithGrantType(grantType))
+	}
 	return out
 }

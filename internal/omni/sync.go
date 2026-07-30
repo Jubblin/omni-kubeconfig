@@ -13,7 +13,6 @@ import (
 	"github.com/cosi-project/runtime/pkg/safe"
 	"github.com/siderolabs/go-kubeconfig"
 	"github.com/siderolabs/omni/client/pkg/client"
-	"github.com/siderolabs/omni/client/pkg/client/management"
 	omnires "github.com/siderolabs/omni/client/pkg/omni/resources/omni"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -108,9 +107,7 @@ func fetchAndMergeKubeconfigs(
 	opts SyncOptions,
 	merger *clientcmdapi.Config,
 ) (int, error) {
-	kubeOpts := []management.KubeconfigOption{
-		management.WithGrantType(opts.GrantType),
-	}
+	kubeOpts := appendGrantTypeOptions(nil, opts.GrantType)
 
 	var merged int
 	var failures []string

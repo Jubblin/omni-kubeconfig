@@ -173,7 +173,7 @@ Flags:
       --merge-existing        Load existing output and merge new downloads (default: true)
       --rename-on-conflict    Rename conflicting entries instead of overwriting
       --activate-context      Set current-context to the last merged cluster; empty current-context still activates (default: false)
-      --grant-type string     OIDC grant type in downloaded kubeconfigs: auto, authcode, authcode-keyboard
+      --grant-type string     OIDC grant type in downloaded kubeconfigs (auto, authcode, authcode-keyboard); omit for kubelogin defaults (omnictl-compatible)
       --dry-run               List clusters that would be synced; do not download or write
       --print-export          Print "export KUBECONFIG=..." when -o is not the default path (default: true)
 
@@ -219,8 +219,8 @@ Global flags: --omniconfig, --context, --insecure-skip-tls-verify, --siderov1-ke
 		"on merge conflict, rename incoming cluster/context/user instead of overwriting")
 	cmd.Flags().BoolVar(&activateContext, "activate-context", false,
 		"set current-context to the last cluster merged this run; default preserves existing (activates when current-context is empty)")
-	cmd.Flags().StringVar(&grantType, "grant-type", "auto",
-		"OIDC grant type embedded in downloaded kubeconfigs (auto, authcode, authcode-keyboard)")
+	cmd.Flags().StringVar(&grantType, "grant-type", "",
+		"OIDC grant type embedded in downloaded kubeconfigs (auto, authcode, authcode-keyboard); omit for kubelogin defaults (omnictl-compatible)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false,
 		"list clusters that would be synced without downloading or writing the output file")
 	cmd.Flags().BoolVar(&printExport, "print-export", true,
@@ -268,7 +268,7 @@ Flags:
       --force                 Overwrite existing file when --merge-existing=false
       --rename-on-conflict    Rename conflicting entries instead of overwriting
       --activate-context      Set current-context to this cluster
-      --grant-type string     OIDC grant type for non-SA kubeconfigs
+      --grant-type string     OIDC grant type for non-SA kubeconfigs (auto, authcode, authcode-keyboard); omit for kubelogin defaults (omnictl-compatible)
       --break-glass           Bypass Omni when enabled for the account
       --print-export          Print "export KUBECONFIG=..." when -o is not default
 
@@ -315,8 +315,8 @@ Global flags: --omniconfig, --context, --insecure-skip-tls-verify, --siderov1-ke
 		"on merge conflict, rename incoming cluster/context/user instead of overwriting")
 	cmd.Flags().BoolVar(&activateContext, "activate-context", false,
 		"set current-context to this cluster; default preserves existing (activates when empty)")
-	cmd.Flags().StringVar(&grantType, "grant-type", "auto",
-		"OIDC grant type embedded in non-service-account kubeconfigs (auto, authcode, authcode-keyboard)")
+	cmd.Flags().StringVar(&grantType, "grant-type", "",
+		"OIDC grant type embedded in non-service-account kubeconfigs (auto, authcode, authcode-keyboard); omit for kubelogin defaults (omnictl-compatible)")
 	cmd.Flags().BoolVar(&breakGlass, "break-glass", false,
 		"request a kubeconfig that bypasses Omni when enabled for the account")
 	cmd.Flags().BoolVar(&printExport, "print-export", true,

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `sync` / `kubeconfig` no longer default `--grant-type` to `auto`; grant type is omitted from the Omni API unless set explicitly (matches `omnictl`, avoids extra `--oidc-redirect-url` in downloaded kubeconfigs)
+
 ## [0.3.2] - 2026-07-28
 
 ### Changed

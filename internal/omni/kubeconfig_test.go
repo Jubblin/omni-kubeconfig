@@ -139,6 +139,23 @@ func TestKubeconfigAPIOptionsDefaultsGroups(t *testing.T) {
 	}
 }
 
+func TestKubeconfigAPIOptionsOmitsGrantTypeByDefault(t *testing.T) {
+	t.Parallel()
+
+	opts := KubeconfigOptions{
+		Cluster: "prod",
+	}
+
+	req := &managementapi.KubeconfigRequest{}
+	for _, opt := range kubeconfigAPIOptions(opts) {
+		opt(req)
+	}
+
+	if req.GrantType != "" {
+		t.Fatalf("GrantType = %q, want empty", req.GrantType)
+	}
+}
+
 func TestKubeconfigAPIOptionsOIDCOnly(t *testing.T) {
 	t.Parallel()
 
