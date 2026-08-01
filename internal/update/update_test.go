@@ -326,8 +326,6 @@ func TestMaybePromptSkipsWhenJustUpdated(t *testing.T) {
 }
 
 func TestFinishSelfUpdateReexec(t *testing.T) {
-	t.Parallel()
-
 	old := reexecFn
 	t.Cleanup(func() { reexecFn = old })
 
@@ -367,8 +365,6 @@ func TestFinishSelfUpdateReexec(t *testing.T) {
 }
 
 func TestFinishSelfUpdateFallsBackWhenReexecFails(t *testing.T) {
-	t.Parallel()
-
 	old := reexecFn
 	t.Cleanup(func() { reexecFn = old })
 	reexecFn = func(string, []string, []string) error {
