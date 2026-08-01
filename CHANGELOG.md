@@ -7,10 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- After confirming a startup update prompt on Unix/macOS, automatically restart into the new binary with the same command (loop-guarded via `OMNI_KUBECONFIG_JUST_UPDATED`)
+
 ### Changed
 
 - `update` installs the latest release only when newer than the running version; already-current installs are skipped
-- After a successful self-update (startup prompt or `update`), the process exits and asks you to restart
+- After a successful self-update from `update`, the process exits and asks you to restart; the startup prompt path auto-restarts on Unix/macOS
 - Startup update-check failures warn and continue instead of aborting `auth` / `sync` / `kubeconfig`
 
 ## [0.3.4] - 2026-07-31
