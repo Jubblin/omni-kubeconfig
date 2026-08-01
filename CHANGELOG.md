@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `update` installs the latest release only when newer than the running version; already-current installs are skipped
+- After a successful self-update (startup prompt or `update`), the process exits and asks you to restart
+- Startup update-check failures warn and continue instead of aborting `auth` / `sync` / `kubeconfig`
+
 ## [0.3.4] - 2026-07-31
 
 ### Fixed

@@ -37,7 +37,7 @@ irm https://github.com/Jubblin/omni-kubeconfig/releases/latest/download/install.
 
 Installs a checksum-verified binary to `~/.local/bin` (Unix) or `%LOCALAPPDATA%\Programs\omni-kubeconfig` (Windows). Add the directory to your `PATH` if prompted.
 
-Upgrade later with `omni-kubeconfig update` or re-run the install script. On interactive runs, the tool prompts when a newer stable release is available (disable with `--no-update-check` or `OMNI_KUBECONFIG_SKIP_UPDATE_CHECK=1`).
+Upgrade later with `omni-kubeconfig update` or re-run the install script. On interactive runs, the tool checks for a newer stable release and prompts to install (disable with `--no-update-check` or `OMNI_KUBECONFIG_SKIP_UPDATE_CHECK=1`). After updating, restart the CLI to use the new binary. `update` skips downloading when already on the latest release.
 
 ### Install from release
 
@@ -384,9 +384,11 @@ Run the same commands inside the published image; mount `~/.talos` and `~/.kube`
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--version` | latest stable | Install a specific release tag (e.g. `v0.3.4`) |
+| `--version` | latest stable (if newer) | Install a specific release tag (e.g. `v0.3.4`); latest path skips when already current |
 | `--install-dir` | running executable | Install to this directory instead of self-replace |
 | `--check` | `false` | Report if a newer stable release exists (exit 1 if outdated) |
+
+After a successful self-update, the process exits and prints a restart reminder.
 
 ### Environment variables
 

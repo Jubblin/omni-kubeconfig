@@ -3,6 +3,7 @@ package update
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,6 +14,10 @@ import (
 
 	"golang.org/x/term"
 )
+
+// ErrRestartRequired is returned after a successful self-update so the caller
+// can exit and ask the user to restart with the new binary.
+var ErrRestartRequired = errors.New("restart required after update")
 
 // CheckOptions controls update availability checks and prompts.
 type CheckOptions struct {
@@ -72,14 +77,21 @@ func Check(ctx context.Context, cfg Config, currentVersion string, opts CheckOpt
 }
 
 // MaybePrompt checks for updates and optionally installs when the user confirms.
+// On a successful self-update it returns ErrRestartRequired so the process can exit.
+// Check/network failures are soft: a warning is written to stderr and nil is returned
+// so the original command can continue.
 func MaybePrompt(ctx context.Context, cfg Config, currentVersion string, opts CheckOptions, stdin io.Reader, stderr io.Writer) error {
 	if opts.SkipCheck || shouldSkipEnv() {
 		return nil
 	}
 
 	result, err := Check(ctx, cfg, currentVersion, opts)
-	if err != nil || !result.Newer {
-		return err
+	if err != nil {
+		fmt.Fprintf(stderr, "[WARN] update check failed: %v\n", err) //nolint:errcheck // best-effort stderr
+		return nil
+	}
+	if !result.Newer {
+		return nil
 	}
 
 	if opts.NoPrompt || !isInteractive(stdin) {
@@ -93,10 +105,19 @@ func MaybePrompt(ctx context.Context, cfg Config, currentVersion string, opts Ch
 		return nil
 	}
 
-	return InstallRelease(ctx, cfg, InstallOptions{
+	if err := InstallRelease(ctx, cfg, InstallOptions{
 		Tag:        result.Latest.TagName,
 		TargetPath: "",
-	})
+	}); err != nil {
+		return err
+	}
+
+	printRestartHint(stderr, result.Latest.Version)
+	return ErrRestartRequired
+}
+
+func printRestartHint(stderr io.Writer, version string) {
+	fmt.Fprintf(stderr, "Please restart omni-kubeconfig to use version %s.\n", normalizeTag(version)) //nolint:errcheck
 }
 
 func shouldSkipEnv() bool {
@@ -142,14 +163,35 @@ type InstallOptions struct {
 	GoArch     string
 }
 
-// InstallLatest downloads and installs the latest stable release.
-func InstallLatest(ctx context.Context, cfg Config, opts InstallOptions) error {
-	latest, err := FetchLatestStable(ctx, cfg)
+// InstallLatest downloads and installs the latest stable release when it is newer
+// than currentVersion. If already up to date, it prints a message and returns nil.
+// After a successful self-update (no TargetPath / replacing the running binary),
+// it returns ErrRestartRequired.
+func InstallLatest(ctx context.Context, cfg Config, currentVersion string, opts InstallOptions, stderr io.Writer) error {
+	if stderr == nil {
+		stderr = os.Stderr
+	}
+
+	result, err := Check(ctx, cfg, currentVersion, CheckOptions{ForceCheck: true})
 	if err != nil {
 		return err
 	}
-	opts.Tag = latest.TagName
-	return InstallRelease(ctx, cfg, opts)
+	if !result.Newer {
+		fmt.Fprintf(stderr, "omni-kubeconfig %s is already up to date (latest %s)\n", //nolint:errcheck
+			normalizeTag(currentVersion), result.Latest.Version)
+		return nil
+	}
+
+	opts.Tag = result.Latest.TagName
+	if err := InstallRelease(ctx, cfg, opts); err != nil {
+		return err
+	}
+
+	if opts.TargetPath == "" {
+		printRestartHint(stderr, result.Latest.Version)
+		return ErrRestartRequired
+	}
+	return nil
 }
 
 // InstallRelease downloads tag to TargetPath or the running executable path.

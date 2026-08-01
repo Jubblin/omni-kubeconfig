@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -31,6 +32,9 @@ func init() {
 
 func main() {
 	if err := newRootCmd().Execute(); err != nil {
+		if errors.Is(err, update.ErrRestartRequired) {
+			os.Exit(0)
+		}
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
@@ -357,7 +361,10 @@ func newUpdateCmd(noUpdateCheck *bool) *cobra.Command {
 		Short: "Download and install a release of omni-kubeconfig",
 		Long: `Install or upgrade omni-kubeconfig from GitHub releases.
 
-By default installs the latest stable release over the running executable.
+By default installs the latest stable release over the running executable when a
+newer version is available. If already up to date, no download is performed.
+After a successful self-update, the process exits and asks you to restart.
+
 Use --install-dir to install to a directory instead (same layout as install.sh).
 
 Examples:
@@ -386,11 +393,7 @@ func runUpdate(noUpdateCheck, check bool, version, installDir string) error {
 		return runUpdateCheck(cfg, current, noUpdateCheck)
 	}
 
-	opts := update.InstallOptions{TargetPath: installDir}
-	if version != "" {
-		opts.Tag = normalizeReleaseTag(version)
-		return update.InstallRelease(context.Background(), cfg, opts)
-	}
+	opts := update.InstallOptions{}
 	if installDir != "" {
 		dir, err := filepath.Abs(installDir)
 		if err != nil {
@@ -399,7 +402,21 @@ func runUpdate(noUpdateCheck, check bool, version, installDir string) error {
 		goos, _ := update.CurrentPlatform()
 		opts.TargetPath = filepath.Join(dir, update.InstalledBinaryName(goos))
 	}
-	return update.InstallLatest(context.Background(), cfg, opts)
+
+	if version != "" {
+		opts.Tag = normalizeReleaseTag(version)
+		if err := update.InstallRelease(context.Background(), cfg, opts); err != nil {
+			return err
+		}
+		if opts.TargetPath == "" {
+			fmt.Fprintf(os.Stderr, "Please restart omni-kubeconfig to use version %s.\n",
+				normalizeVersion(opts.Tag))
+			return update.ErrRestartRequired
+		}
+		return nil
+	}
+
+	return update.InstallLatest(context.Background(), cfg, current, opts, os.Stderr)
 }
 
 func runUpdateCheck(cfg update.Config, current string, noUpdateCheck bool) error {
