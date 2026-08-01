@@ -285,6 +285,20 @@ func TestInstallLatestUpdatesWhenNewer(t *testing.T) {
 	}
 }
 
+func TestStripArgv0(t *testing.T) {
+	t.Parallel()
+
+	if got := stripArgv0([]string{"omni-kubeconfig", "sync", "-c", "mox"}); len(got) != 3 || got[0] != "sync" {
+		t.Fatalf("got %#v", got)
+	}
+	if got := stripArgv0([]string{"omni-kubeconfig"}); len(got) != 0 {
+		t.Fatalf("got %#v", got)
+	}
+	if got := stripArgv0(nil); len(got) != 0 {
+		t.Fatalf("got %#v", got)
+	}
+}
+
 func TestWithJustUpdated(t *testing.T) {
 	t.Parallel()
 
