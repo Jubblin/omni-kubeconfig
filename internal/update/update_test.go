@@ -79,6 +79,10 @@ func TestIsNewerStable(t *testing.T) {
 	if err != nil || ok {
 		t.Fatalf("0.3.0 > 0.3.1: ok=%v err=%v", ok, err)
 	}
+	ok, err = IsNewerStable("0.3.1", "0.3.1")
+	if err != nil || ok {
+		t.Fatalf("0.3.1 == 0.3.1: ok=%v err=%v", ok, err)
+	}
 }
 
 func TestFetchLatestStable(t *testing.T) {
@@ -187,6 +191,95 @@ func TestMaybePromptNoWhenNonInteractive(t *testing.T) {
 	err := MaybePrompt(context.Background(), cfg, "0.3.0", CheckOptions{NoPrompt: true}, strings.NewReader(""), os.Stderr)
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestMaybePromptSoftFailsOnCheckError(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "boom", http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	var stderr strings.Builder
+	cfg := Config{APIBaseURL: srv.URL, Repo: "Jubblin/omni-kubeconfig", CacheDir: t.TempDir()}
+	err := MaybePrompt(context.Background(), cfg, "0.3.0", CheckOptions{ForceCheck: true}, strings.NewReader(""), &stderr)
+	if err != nil {
+		t.Fatalf("expected soft-fail nil, got %v", err)
+	}
+	if !strings.Contains(stderr.String(), "update check failed") {
+		t.Fatalf("stderr = %q, want update check failed warning", stderr.String())
+	}
+}
+
+func TestInstallLatestSkipsWhenCurrent(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/releases/latest") {
+			_ = json.NewEncoder(w).Encode(githubRelease{TagName: "v0.3.4", Prerelease: false})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	var stderr strings.Builder
+	cfg := Config{APIBaseURL: srv.URL, Repo: "Jubblin/omni-kubeconfig", CacheDir: t.TempDir()}
+	err := InstallLatest(context.Background(), cfg, "0.3.4", InstallOptions{
+		TargetPath: filepath.Join(t.TempDir(), "bin"),
+	}, &stderr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stderr.String(), "already up to date") {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
+func TestInstallLatestUpdatesWhenNewer(t *testing.T) {
+	t.Parallel()
+
+	const asset = "omni-kubeconfig-linux-amd64"
+	payload := []byte("#!/bin/sh\necho newer\n")
+	expected, err := hashBytes(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/repos/Jubblin/omni-kubeconfig/releases/latest", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(githubRelease{TagName: "v0.3.5", Prerelease: false})
+	})
+	mux.HandleFunc("/Jubblin/omni-kubeconfig/releases/download/v0.3.5/sha256sum.txt", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(expected + "  " + asset + "\n"))
+	})
+	mux.HandleFunc("/Jubblin/omni-kubeconfig/releases/download/v0.3.5/"+asset, func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write(payload)
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	target := filepath.Join(t.TempDir(), "omni-kubeconfig")
+	var stderr strings.Builder
+	cfg := Config{
+		APIBaseURL:      srv.URL,
+		DownloadBaseURL: srv.URL,
+		Repo:            "Jubblin/omni-kubeconfig",
+		CacheDir:        t.TempDir(),
+	}
+	err = InstallLatest(context.Background(), cfg, "0.3.4", InstallOptions{
+		TargetPath: target,
+		GoOS:       "linux",
+		GoArch:     "amd64",
+	}, &stderr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st, err := os.Stat(target)
+	if err != nil || st.Size() != int64(len(payload)) {
+		t.Fatalf("installed binary: err=%v size=%d", err, st.Size())
 	}
 }
 
