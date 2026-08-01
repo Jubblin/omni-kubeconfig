@@ -195,7 +195,8 @@ func TestMaybePromptNoWhenNonInteractive(t *testing.T) {
 }
 
 func TestMaybePromptSoftFailsOnCheckError(t *testing.T) {
-	t.Parallel()
+	t.Setenv("CI", "")
+	t.Setenv("OMNI_KUBECONFIG_SKIP_UPDATE_CHECK", "")
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "boom", http.StatusInternalServerError)
