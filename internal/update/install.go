@@ -77,9 +77,9 @@ func Check(ctx context.Context, cfg Config, currentVersion string, opts CheckOpt
 }
 
 // MaybePrompt checks for updates and optionally installs when the user confirms.
-// On a successful self-update it returns ErrRestartRequired so the process can exit.
-// Check/network failures are soft: a warning is written to stderr and nil is returned
-// so the original command can continue.
+// On a successful self-update it restarts into the new binary (Unix) or returns
+// ErrRestartRequired so the process can exit. Check/network failures are soft:
+// a warning is written to stderr and nil is returned so the original command continues.
 func MaybePrompt(ctx context.Context, cfg Config, currentVersion string, opts CheckOptions, stdin io.Reader, stderr io.Writer) error {
 	if opts.SkipCheck || shouldSkipEnv() {
 		return nil
@@ -112,8 +112,7 @@ func MaybePrompt(ctx context.Context, cfg Config, currentVersion string, opts Ch
 		return err
 	}
 
-	printRestartHint(stderr, result.Latest.Version)
-	return ErrRestartRequired
+	return finishSelfUpdate(stderr, result.Latest.Version, os.Args)
 }
 
 func printRestartHint(stderr io.Writer, version string) {
@@ -121,6 +120,9 @@ func printRestartHint(stderr io.Writer, version string) {
 }
 
 func shouldSkipEnv() bool {
+	if justUpdated() {
+		return true
+	}
 	if os.Getenv("OMNI_KUBECONFIG_SKIP_UPDATE_CHECK") == "1" {
 		return true
 	}

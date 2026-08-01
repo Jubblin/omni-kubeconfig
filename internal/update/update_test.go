@@ -3,6 +3,7 @@ package update
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -281,6 +282,107 @@ func TestInstallLatestUpdatesWhenNewer(t *testing.T) {
 	st, err := os.Stat(target)
 	if err != nil || st.Size() != int64(len(payload)) {
 		t.Fatalf("installed binary: err=%v size=%d", err, st.Size())
+	}
+}
+
+func TestWithJustUpdated(t *testing.T) {
+	t.Parallel()
+
+	got := withJustUpdated([]string{"FOO=1", EnvJustUpdated + "=0", "BAR=2"})
+	var found int
+	for _, e := range got {
+		if strings.HasPrefix(e, EnvJustUpdated+"=") {
+			found++
+			if e != EnvJustUpdated+"=1" {
+				t.Fatalf("got %q", e)
+			}
+		}
+	}
+	if found != 1 {
+		t.Fatalf("JUST_UPDATED entries = %d want 1 in %#v", found, got)
+	}
+}
+
+func TestMaybePromptSkipsWhenJustUpdated(t *testing.T) {
+	t.Setenv(EnvJustUpdated, "1")
+	t.Setenv("CI", "")
+	t.Setenv("OMNI_KUBECONFIG_SKIP_UPDATE_CHECK", "")
+
+	called := false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		called = true
+		_ = json.NewEncoder(w).Encode(githubRelease{TagName: "v9.9.9", Prerelease: false})
+	}))
+	defer srv.Close()
+
+	cfg := Config{APIBaseURL: srv.URL, Repo: "Jubblin/omni-kubeconfig", CacheDir: t.TempDir()}
+	err := MaybePrompt(context.Background(), cfg, "0.3.0", CheckOptions{ForceCheck: true}, strings.NewReader("y\n"), os.Stderr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if called {
+		t.Fatal("expected update check to be skipped when JUST_UPDATED is set")
+	}
+}
+
+func TestFinishSelfUpdateReexec(t *testing.T) {
+	t.Parallel()
+
+	old := reexecFn
+	t.Cleanup(func() { reexecFn = old })
+
+	var gotExe string
+	var gotArgs, gotEnv []string
+	reexecFn = func(exe string, args, env []string) error {
+		gotExe = exe
+		gotArgs = append([]string(nil), args...)
+		gotEnv = append([]string(nil), env...)
+		return nil
+	}
+
+	var stderr strings.Builder
+	err := finishSelfUpdate(&stderr, "0.3.5", []string{"omni-kubeconfig", "sync"})
+	if !errors.Is(err, ErrRestartRequired) {
+		t.Fatalf("err = %v want ErrRestartRequired", err)
+	}
+	if gotExe == "" {
+		t.Fatal("expected reexec exe")
+	}
+	if len(gotArgs) != 2 || gotArgs[1] != "sync" {
+		t.Fatalf("args = %#v", gotArgs)
+	}
+	found := false
+	for _, e := range gotEnv {
+		if e == EnvJustUpdated+"=1" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("env missing JUST_UPDATED: %#v", gotEnv)
+	}
+	if !strings.Contains(stderr.String(), "Restarting") {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
+func TestFinishSelfUpdateFallsBackWhenReexecFails(t *testing.T) {
+	t.Parallel()
+
+	old := reexecFn
+	t.Cleanup(func() { reexecFn = old })
+	reexecFn = func(string, []string, []string) error {
+		return errors.New("exec failed")
+	}
+
+	var stderr strings.Builder
+	err := finishSelfUpdate(&stderr, "0.3.5", []string{"omni-kubeconfig"})
+	if !errors.Is(err, ErrRestartRequired) {
+		t.Fatalf("err = %v", err)
+	}
+	out := stderr.String()
+	if !strings.Contains(out, "auto-restart failed") || !strings.Contains(out, "Please restart") {
+		t.Fatalf("stderr = %q", out)
 	}
 }
 

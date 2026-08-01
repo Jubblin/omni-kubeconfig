@@ -37,7 +37,7 @@ irm https://github.com/Jubblin/omni-kubeconfig/releases/latest/download/install.
 
 Installs a checksum-verified binary to `~/.local/bin` (Unix) or `%LOCALAPPDATA%\Programs\omni-kubeconfig` (Windows). Add the directory to your `PATH` if prompted.
 
-Upgrade later with `omni-kubeconfig update` or re-run the install script. On interactive runs, the tool checks for a newer stable release and prompts to install (disable with `--no-update-check` or `OMNI_KUBECONFIG_SKIP_UPDATE_CHECK=1`). After updating, restart the CLI to use the new binary. `update` skips downloading when already on the latest release.
+Upgrade later with `omni-kubeconfig update` or re-run the install script. On interactive runs, the tool checks for a newer stable release and prompts to install (disable with `--no-update-check` or `OMNI_KUBECONFIG_SKIP_UPDATE_CHECK=1`). On Unix/macOS, confirming the prompt restarts into the new binary and continues your command; otherwise restart the CLI manually after updating. `update` skips downloading when already on the latest release.
 
 ### Install from release
 
