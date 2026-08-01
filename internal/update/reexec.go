@@ -62,3 +62,11 @@ func withJustUpdated(env []string) []string {
 func justUpdated() bool {
 	return os.Getenv(EnvJustUpdated) == "1"
 }
+
+// stripArgv0 returns args suitable for exec.Command after the executable path.
+func stripArgv0(args []string) []string {
+	if len(args) == 0 {
+		return nil
+	}
+	return args[1:]
+}

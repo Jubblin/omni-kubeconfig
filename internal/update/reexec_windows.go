@@ -2,9 +2,22 @@
 
 package update
 
-import "fmt"
+import (
+	"os"
+	"os/exec"
+)
 
-// Windows auto-restart is implemented in a follow-up (spawn + exit).
+// reexecSelf starts a new process with the updated binary and returns nil so the
+// parent can exit (finishSelfUpdate then returns ErrRestartRequired). The child
+// inherits JUST_UPDATED via env and continues the original command.
 func reexecSelf(exe string, args, env []string) error {
-	return fmt.Errorf("auto-restart is not supported on windows yet")
+	cmd := exec.Command(exe, stripArgv0(args)...)
+	cmd.Env = env
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if dir, err := os.Getwd(); err == nil {
+		cmd.Dir = dir
+	}
+	return cmd.Start()
 }
