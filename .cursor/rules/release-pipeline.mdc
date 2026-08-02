@@ -26,12 +26,12 @@ Do not change CI checks/workflows just to make failures pass. Fix the code or co
 - GHCR publish order (scan-before-mutable-tag):
   1. **publish**: GoReleaser pushes immutable `ghcr.io/jubblin/omni-kubeconfig:sha-<commit>`
   2. **scan**: Trivy scans that digest (`CRITICAL`/`HIGH`, `exit-code: 1`)
-  3. **promote**: only then promote `v0.3.4-snapshot.N` **and** floating `v0.3.4-snapshot` (snapshot) or semver + `major.minor` + `latest` (full release)
+  3. **promote**: only then promote `v0.3.5-snapshot.N` **and** floating `v0.3.5-snapshot` (snapshot) or semver + `major.minor` + `latest` (full release)
 - **attest**: Cosign + container SBOM after promote (`scripts/release-attest.sh`); Dockerfile config scan owned by `docker.yml` (Dockerfile path changes)
 
 ```bash
-docker pull ghcr.io/jubblin/omni-kubeconfig:v0.3.4-snapshot      # floating latest on line
-docker pull ghcr.io/jubblin/omni-kubeconfig:v0.3.4-snapshot.3    # specific build
+docker pull ghcr.io/jubblin/omni-kubeconfig:v0.3.5-snapshot      # floating latest on line
+docker pull ghcr.io/jubblin/omni-kubeconfig:v0.3.5-snapshot.3    # specific build
 ```
 
 ## Tag `vX.Y.Z` push (release)
