@@ -180,6 +180,35 @@ func TestUpdateCommandRegistered(t *testing.T) {
 	}
 }
 
+func TestMachineClassCloneCommandRegistered(t *testing.T) {
+	cmd := newRootCmd()
+	cloneCmd, _, err := cmd.Find([]string{"machineclass", "clone"})
+	if err != nil {
+		t.Fatalf("Find machineclass clone: %v", err)
+	}
+	if cloneCmd.Use != "clone <source> <destination>" {
+		t.Fatalf("clone command = %q", cloneCmd.Use)
+	}
+	force := cloneCmd.Flags().Lookup("force")
+	if force == nil {
+		t.Fatal("machineclass clone --force flag missing")
+	}
+	if force.DefValue != "false" {
+		t.Fatalf("force default = %q, want false", force.DefValue)
+	}
+}
+
+func TestMachineClassListCommandRegistered(t *testing.T) {
+	cmd := newRootCmd()
+	listCmd, _, err := cmd.Find([]string{"machineclass", "list"})
+	if err != nil {
+		t.Fatalf("Find machineclass list: %v", err)
+	}
+	if listCmd.Use != "list" {
+		t.Fatalf("list command = %q", listCmd.Use)
+	}
+}
+
 func TestNormalizeVersion(t *testing.T) {
 	if got := normalizeVersion("v0.3.0"); got != "0.3.0" {
 		t.Fatalf("got %q", got)
