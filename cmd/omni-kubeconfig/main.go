@@ -58,10 +58,11 @@ func newRootCmd() *cobra.Command {
 		Long: `Download admin kubeconfigs from a Sidero Omni server and merge them into one file for kubectl.
 
 Commands:
-  auth        Authenticate to Omni (SideroV1 PGP + browser login)
-  sync        Download and merge OIDC admin kubeconfigs for clusters
-  kubeconfig  Download one cluster kubeconfig (OIDC or Kubernetes service account)
-  update      Install the latest release (self-update)
+  auth          Authenticate to Omni (SideroV1 PGP + browser login)
+  sync          Download and merge OIDC admin kubeconfigs for clusters
+  kubeconfig    Download one cluster kubeconfig (OIDC or Kubernetes service account)
+  machineclass  Manage Omni MachineClass resources (list, clone)
+  update        Install the latest release (self-update)
 
 Install:
   curl -fsSL https://github.com/Jubblin/omni-kubeconfig/releases/latest/download/install.sh | bash
@@ -73,7 +74,9 @@ Global flags apply to all commands (see --help on each command for command-speci
   omni-kubeconfig sync
   omni-kubeconfig update
   omni-kubeconfig sync --cluster prod --output ~/.kube/omni-prod
-  omni-kubeconfig kubeconfig --service-account --cluster prod --user ci-deploy -o ./prod-ci.kubeconfig`,
+  omni-kubeconfig kubeconfig --service-account --cluster prod --user ci-deploy -o ./prod-ci.kubeconfig
+  omni-kubeconfig machineclass list
+  omni-kubeconfig machineclass clone workers workers-copy`,
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			return maybeCheckForUpdates(cmd, noUpdateCheck, forceUpdateCheck)
 		},
@@ -105,9 +108,74 @@ Global flags apply to all commands (see --help on each command for command-speci
 	root.AddCommand(newAuthCmd(clientOpts))
 	root.AddCommand(newSyncCmd(clientOpts, defaultOutput))
 	root.AddCommand(newKubeconfigCmd(clientOpts, defaultOutput))
+	root.AddCommand(newMachineClassCmd(clientOpts))
 	root.AddCommand(newUpdateCmd(&noUpdateCheck))
 
 	return root
+}
+
+func newMachineClassCmd(clientOpts clientOptsFunc) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "machineclass",
+		Short: "Manage Omni MachineClass resources",
+		Long: `Commands for Omni MachineClass resources (machine selection / auto-provision definitions).
+
+Subcommands:
+  list    List MachineClass names
+  clone   Copy an existing MachineClass to a new name`,
+	}
+	cmd.AddCommand(newMachineClassListCmd(clientOpts))
+	cmd.AddCommand(newMachineClassCloneCmd(clientOpts))
+	return cmd
+}
+
+func newMachineClassListCmd(clientOpts clientOptsFunc) *cobra.Command {
+	return &cobra.Command{
+		Use:   "list",
+		Short: "List Omni MachineClass names",
+		Long: `List MachineClass resource IDs from Omni (sorted), one per line.
+
+Global flags: --omniconfig, --context, --insecure-skip-tls-verify, --siderov1-keys-dir`,
+		Example: `  omni-kubeconfig machineclass list`,
+		Args:    cobra.NoArgs,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return omni.ListMachineClasses(omni.ListMachineClassesOptions{
+				ClientOptions: clientOpts(),
+			})
+		},
+	}
+}
+
+func newMachineClassCloneCmd(clientOpts clientOptsFunc) *cobra.Command {
+	var force bool
+
+	cmd := &cobra.Command{
+		Use:   "clone <source> <destination>",
+		Short: "Clone an Omni MachineClass to a new name",
+		Long: `Copy TypedSpec (match labels, auto-provision) and user metadata labels from an
+existing MachineClass to a new resource ID.
+
+Fails if the destination already exists unless --force is set.
+
+Flags:
+      --force   Overwrite TypedSpec and labels on an existing destination
+
+Global flags: --omniconfig, --context, --insecure-skip-tls-verify, --siderov1-keys-dir`,
+		Example: `  omni-kubeconfig machineclass clone workers workers-staging
+  omni-kubeconfig machineclass clone workers workers-staging --force`,
+		Args: cobra.ExactArgs(2),
+		RunE: func(_ *cobra.Command, args []string) error {
+			return omni.CloneMachineClass(omni.CloneMachineClassOptions{
+				ClientOptions: clientOpts(),
+				Source:        args[0],
+				Destination:   args[1],
+				Force:         force,
+			})
+		},
+	}
+	cmd.Flags().BoolVar(&force, "force", false,
+		"overwrite TypedSpec and labels if the destination MachineClass already exists")
+	return cmd
 }
 
 func newAuthCmd(clientOpts clientOptsFunc) *cobra.Command {

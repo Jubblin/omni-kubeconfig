@@ -12,6 +12,7 @@ Download admin kubeconfigs for every cluster on a [Sidero Omni](https://docs.sid
 - **`auth`** — SideroV1 PGP + browser login (same flow as `omnictl`)
 - **`sync`** — List all Omni clusters, download OIDC admin kubeconfigs, merge into one file
 - **`kubeconfig`** — Download one cluster kubeconfig; optional `--service-account` for token-based access (no kubelogin)
+- **`machineclass list`** / **`machineclass clone`** — List Omni MachineClass names; copy TypedSpec + labels to a new name (`--force` overwrites)
 - **`update`** — Install the latest release (self-update) or check for updates
 - One-click install via `scripts/install.sh` / `scripts/install.ps1` with SHA256 verification
 - Interactive update prompt when a newer stable release exists (opt-out flags available)
@@ -321,13 +322,23 @@ Use that file with `kubectl` directly (embedded token; no `kubelogin`). See the 
 
 To authenticate *this tool* to Omni without a browser, use an Omni service account key (`OMNI_SERVICE_ACCOUNT_KEY`) instead — that is separate from cluster SA kubeconfigs.
 
+### Clone a MachineClass
+
+List MachineClass names, then copy an existing Omni MachineClass (match labels, auto-provision settings, and user metadata labels) to a new name:
+
+```bash
+omni-kubeconfig machineclass list
+omni-kubeconfig machineclass clone workers workers-staging
+omni-kubeconfig machineclass clone workers workers-staging --force   # overwrite if destination exists
+```
+
 ### Docker
 
 Run the same commands inside the published image; mount `~/.talos` and `~/.kube`, use `--user "$(id -u):$(id -g)"`, and keep `kubectl` on the host. See [Run with Docker](#run-with-docker).
 
 ## Reference
 
-`omni-kubeconfig --help`, `auth --help`, `sync --help`, `kubeconfig --help`, and `update --help` mirror this section.
+`omni-kubeconfig --help`, `auth --help`, `sync --help`, `kubeconfig --help`, `machineclass list --help`, `machineclass clone --help`, and `update --help` mirror this section.
 
 ### Global flags
 
@@ -380,6 +391,18 @@ Run the same commands inside the published image; mount `~/.talos` and `~/.kube`
 | `--break-glass` | `false` | Bypass Omni when enabled for the account |
 | `--print-export` | `true` | Print `export KUBECONFIG=...` when `-o` is not `~/.kube/config` |
 
+### `machineclass list`
+
+No command-specific flags. Prints sorted MachineClass IDs, one per line. Prints `no machine classes found` to stderr when empty.
+
+### `machineclass clone` flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--force` | `false` | Overwrite TypedSpec and labels if the destination already exists |
+
+Args: `<source> <destination>` (required; names must differ).
+
 ### `update` flags
 
 | Flag | Default | Description |
@@ -413,6 +436,9 @@ omni-kubeconfig sync --merge-existing=false   # drop contexts from prior syncs n
 omni-kubeconfig sync --grant-type authcode-keyboard
 omni-kubeconfig kubeconfig -c prod
 omni-kubeconfig kubeconfig --service-account -c prod --user ci-deploy -o ./prod-ci.kubeconfig --merge-existing=false --force
+omni-kubeconfig machineclass list
+omni-kubeconfig machineclass clone workers workers-staging
+omni-kubeconfig machineclass clone workers workers-staging --force
 curl -fsSL https://github.com/Jubblin/omni-kubeconfig/releases/latest/download/install.sh | bash
 omni-kubeconfig update
 omni-kubeconfig update --check
@@ -435,15 +461,17 @@ omni-kubeconfig sync --no-update-check
 1. Connects to Omni (same client bootstrap as `omnictl`)
 2. **`sync`**: lists `Clusters.omni.sidero.dev`, downloads each OIDC admin kubeconfig, merges
 3. **`kubeconfig`**: downloads one cluster kubeconfig (OIDC, or SA token with `--service-account`)
-4. Merges with [go-kubeconfig](https://github.com/siderolabs/go-kubeconfig) (into existing output when `--merge-existing`, default)
-5. Backs up existing output before writing
+4. **`machineclass list`**: lists `MachineClasses.omni.sidero.dev` IDs
+5. **`machineclass clone`**: copies `MachineClasses.omni.sidero.dev` TypedSpec and labels to a new ID
+6. Merges with [go-kubeconfig](https://github.com/siderolabs/go-kubeconfig) (into existing output when `--merge-existing`, default)
+7. Backs up existing output before writing
 
 ## Project layout
 
 ```
 .
 ├── cmd/omni-kubeconfig/    # CLI entrypoint
-├── internal/omni/          # Omni client, auth, sync
+├── internal/omni/          # Omni client, auth, sync, machineclass
 ├── internal/version/       # Semver metadata
 ├── .devcontainer/          # Dev Container spec
 ├── Dockerfile              # Distroless image (copies GoReleaser linux binaries from dist/)
