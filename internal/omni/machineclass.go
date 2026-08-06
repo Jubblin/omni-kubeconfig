@@ -70,7 +70,9 @@ func listMachineClasses(ctx context.Context, st state.State, out io.Writer) erro
 	}
 
 	for _, name := range names {
-		fmt.Fprintln(out, name)
+		if _, err := fmt.Fprintln(out, name); err != nil {
+			return fmt.Errorf("write machine class name: %w", err)
+		}
 	}
 	return nil
 }
