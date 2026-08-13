@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-08-13
+
+### Fixed
+
+- `update` and `update --check` compare snapshot/dev builds to the latest stable release (previously they skipped GitHub and reported "up to date" with an empty latest version)
+
 ## [0.4.0] - 2026-08-13
 
 ### Added
@@ -109,7 +115,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Omni API v2 compatibility
 - Makefile build with semver injection from git tags
 
-[Unreleased]: https://github.com/Jubblin/omni-kubeconfig/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/Jubblin/omni-kubeconfig/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/Jubblin/omni-kubeconfig/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/Jubblin/omni-kubeconfig/compare/v0.3.6...v0.4.0
 [0.3.6]: https://github.com/Jubblin/omni-kubeconfig/compare/v0.3.5...v0.3.6
 [0.3.5]: https://github.com/Jubblin/omni-kubeconfig/compare/v0.3.4...v0.3.5

@@ -38,7 +38,12 @@ func Check(ctx context.Context, cfg Config, currentVersion string, opts CheckOpt
 	cfg = cfg.withDefaults()
 	result := CheckResult{Current: currentVersion}
 
-	if opts.SkipCheck || IsDevVersion(currentVersion) {
+	if opts.SkipCheck {
+		return result, nil
+	}
+	// Snapshot/dev builds skip the cached auto-check so auth/sync do not nag.
+	// ForceCheck (update, update --check, --check-updates) still compares to latest stable.
+	if IsDevVersion(currentVersion) && !opts.ForceCheck {
 		return result, nil
 	}
 
