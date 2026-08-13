@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-13
+
 ### Added
 
 - `sync --prune` (default true) removes Omni kubeconfig entries for clusters destroyed since the last sync, without dropping unrelated contexts; opt out with `--prune=false`
@@ -107,7 +109,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Omni API v2 compatibility
 - Makefile build with semver injection from git tags
 
-[Unreleased]: https://github.com/Jubblin/omni-kubeconfig/compare/v0.3.6...HEAD
+[Unreleased]: https://github.com/Jubblin/omni-kubeconfig/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/Jubblin/omni-kubeconfig/compare/v0.3.6...v0.4.0
 [0.3.6]: https://github.com/Jubblin/omni-kubeconfig/compare/v0.3.5...v0.3.6
 [0.3.5]: https://github.com/Jubblin/omni-kubeconfig/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/Jubblin/omni-kubeconfig/compare/v0.3.3...v0.3.4
