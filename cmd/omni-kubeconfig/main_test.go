@@ -129,6 +129,22 @@ func TestSyncCommandActivateContextDefaultFalse(t *testing.T) {
 	}
 }
 
+func TestSyncCommandPruneDefaultTrue(t *testing.T) {
+	cmd := newRootCmd()
+	syncCmd, _, err := cmd.Find([]string{"sync"})
+	if err != nil {
+		t.Fatalf("Find sync: %v", err)
+	}
+
+	flag := syncCmd.Flags().Lookup("prune")
+	if flag == nil {
+		t.Fatal("prune flag not found")
+	}
+	if flag.DefValue != "true" {
+		t.Fatalf("prune default = %q, want true", flag.DefValue)
+	}
+}
+
 func TestKubeconfigCommandFlags(t *testing.T) {
 	home := testHome(t)
 

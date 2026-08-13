@@ -17,6 +17,7 @@ Download admin kubeconfigs for every cluster on a [Sidero Omni](https://docs.sid
 - One-click install via `scripts/install.sh` / `scripts/install.ps1` with SHA256 verification
 - Interactive update prompt when a newer stable release exists (opt-out flags available)
 - Incremental merge into existing output by default (`--merge-existing`); full replace with `--merge-existing=false`
+- Prunes Omni entries for clusters destroyed since the last sync by default (keeps non-Omni contexts; `--prune=false` to opt out)
 - Name conflicts overwrite by default; `--rename-on-conflict` keeps both (incoming → `name-1`)
 - Preserves existing `current-context` by default (cold starts / empty `current-context` still get one); `--activate-context` sets it to the last merged cluster
 - Backups existing output as `*.bak.<timestamp>` before overwrite
@@ -303,6 +304,14 @@ kubectl get nodes --context <cluster-name>
 
 On success, `sync` prints `export KUBECONFIG=<path>` when `-o` is not the default `~/.kube/config` (disable with `--print-export=false`).
 
+By default, `sync` drops Omni contexts for clusters that have been destroyed since the last sync, while keeping unrelated entries (minikube, etc.). Opt out with `--prune=false`:
+
+```bash
+omni-kubeconfig sync
+omni-kubeconfig sync --dry-run
+omni-kubeconfig sync --prune=false
+```
+
 ### Service-account kubeconfig (token)
 
 For CI or other non-interactive cluster access, mint a **Kubernetes** service-account kubeconfig (not an Omni API service account):
@@ -366,6 +375,7 @@ Run the same commands inside the published image; mount `~/.talos` and `~/.kube`
 | `-o`, `--output` | `~/.kube/config` | Merged kubeconfig path |
 | `-c`, `--cluster` | all | Sync only these clusters (repeatable) |
 | `--merge-existing` | `true` | Load existing output and merge; `false` replaces with clusters synced this run |
+| `--prune` | `true` | Remove Omni entries for clusters that no longer exist (keeps non-Omni contexts); `false` keeps stale Omni entries |
 | `--rename-on-conflict` | `false` | Rename conflicting entries instead of overwriting (default overwrites) |
 | `--activate-context` | `false` | Set `current-context` to the last cluster merged; default preserves existing (activates on empty/`--merge-existing=false` cold start) |
 | `--grant-type` | *(omitted)* | OIDC grant: `auto`, `authcode`, `authcode-keyboard`; omit for kubelogin defaults (matches `omnictl`) |
@@ -433,6 +443,7 @@ omni-kubeconfig sync -o ~/.kube/omni-prod -c prod -c staging
 omni-kubeconfig sync --rename-on-conflict      # keep both on name clash (incoming → name-1)
 omni-kubeconfig sync --activate-context       # set current-context to last merged cluster
 omni-kubeconfig sync --merge-existing=false   # drop contexts from prior syncs not in this run
+omni-kubeconfig sync --prune=false            # keep Omni clusters destroyed since last sync
 omni-kubeconfig sync --grant-type authcode-keyboard
 omni-kubeconfig kubeconfig -c prod
 omni-kubeconfig kubeconfig --service-account -c prod --user ci-deploy -o ./prod-ci.kubeconfig --merge-existing=false --force
@@ -459,7 +470,7 @@ omni-kubeconfig sync --no-update-check
 ## How it works
 
 1. Connects to Omni (same client bootstrap as `omnictl`)
-2. **`sync`**: lists `Clusters.omni.sidero.dev`, downloads each OIDC admin kubeconfig, merges
+2. **`sync`**: lists `Clusters.omni.sidero.dev`, downloads each OIDC admin kubeconfig, merges; `--prune` (default) drops destroyed Omni entries
 3. **`kubeconfig`**: downloads one cluster kubeconfig (OIDC, or SA token with `--service-account`)
 4. **`machineclass list`**: lists `MachineClasses.omni.sidero.dev` IDs
 5. **`machineclass clone`**: copies `MachineClasses.omni.sidero.dev` TypedSpec and labels to a new ID
