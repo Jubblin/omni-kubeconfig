@@ -6,6 +6,10 @@ alwaysApply: false
 
 # Testing
 
+## TDD (mandatory)
+
+All behavior changes follow **red → green → refactor**. Do not write production code before a failing test exists for that change. See `.cursor/rules/tdd.mdc`.
+
 ## Run tests
 
 ```bash
@@ -38,4 +42,4 @@ Use `strings.ReplaceAll` (not `strings.Replace(..., -1)`) — staticcheck QF1004
 
 ## When adding behaviour
 
-Add tests in the same PR for CLI defaults, export suppression, merge/filter logic, and path resolution. Reserve manual Omni `sync`/`auth` checks for release validation only.
+TDD first (failing test, then code) in the same PR for CLI defaults, export suppression, merge/filter logic, and path resolution. Reserve manual Omni `sync`/`auth` checks for release validation only.

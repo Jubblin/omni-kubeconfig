@@ -1,0 +1,29 @@
+---
+description: Mandatory TDD — red, then green, then refactor — for all code changes
+alwaysApply: true
+---
+
+# Test-driven development (mandatory)
+
+For every feature, bugfix, or behavior-changing refactor: **red → green → refactor**. Do not implement first and add tests after.
+
+1. **Red**: write a failing test that specifies the desired behavior. Run the narrowest `go test` and confirm it fails for the right reason.
+2. **Green**: write the smallest production change that makes the test pass. Do not add extra behavior.
+3. **Refactor**: clean up only while tests stay green.
+
+## Hard requirements
+
+- Do not write or change production code before a failing test exists for that change.
+- If tests already exist, add or adjust the failing test first, then change code.
+- Prefer tests in the same package/PR: `internal/omni/*_test.go`, `cmd/omni-kubeconfig/main_test.go`.
+- Exception: pure docs, Cursor rules, comments, or changelog with no behavior change.
+
+```go
+// ❌ BAD — implement first
+func Max(a, b int) int { if a > b { return a }; return b }
+func TestMax(t *testing.T) { if Max(2, 1) != 2 { t.Fatal() } }
+
+// ✅ GOOD — failing test first, then the smallest implementation
+func TestMax(t *testing.T) { if Max(2, 1) != 2 { t.Fatal() } } // red: Max undefined
+func Max(a, b int) int { if a > b { return a }; return b }     // green
+```
