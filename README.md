@@ -102,17 +102,17 @@ The image contains only the `omni-kubeconfig` binary (distroless, no shell). Mou
 
 | Tag | When |
 |-----|------|
-| `v0.4.0-snapshot` | Floating latest from `main` for the current release line (after Trivy) |
-| `v0.4.0-snapshot.N` | Immutable numbered snapshot for a specific `main` build (after Trivy) |
+| `v0.4.1-snapshot` | Floating latest from `main` for the current release line (after Trivy) |
+| `v0.4.1-snapshot.N` | Immutable numbered snapshot for a specific `main` build (after Trivy) |
 | `latest` | Most recent release (after Trivy) |
 | `0.1.2` | Exact semver (no `v` prefix), after Trivy |
 | `0.1` | Major.minor alias on release |
 | `sha-<commit>` | Immutable digest pointer (pushed before scan; safe if scan fails) |
 
 ```bash
-# After merging to main (release line v0.4.0)
-docker pull ghcr.io/jubblin/omni-kubeconfig:v0.4.0-snapshot
-docker pull ghcr.io/jubblin/omni-kubeconfig:v0.4.0-snapshot.3
+# After merging to main (release line v0.4.1)
+docker pull ghcr.io/jubblin/omni-kubeconfig:v0.4.1-snapshot
+docker pull ghcr.io/jubblin/omni-kubeconfig:v0.4.1-snapshot.3
 
 # After tagging v0.1.2
 docker pull ghcr.io/jubblin/omni-kubeconfig:0.1.2
@@ -259,8 +259,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ```bash
 # Ensure CHANGELOG.md is updated, then:
-git tag v0.4.0
-git push origin v0.4.0
+git tag v0.4.1
+git push origin v0.4.1
 ```
 
 GoReleaser publishes bare binaries (naming matches `omnictl-*`) for darwin/linux amd64+arm64 and windows amd64 only, and builds/pushes the multi-arch container image via `dockers_v2`. See [.goreleaser.yaml](.goreleaser.yaml).
@@ -417,7 +417,7 @@ Args: `<source> <destination>` (required; names must differ).
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--version` | latest stable (if newer) | Install a specific release tag (e.g. `v0.4.0`); latest path skips when already current |
+| `--version` | latest stable (if newer) | Install a specific release tag (e.g. `v0.4.1`); latest path skips when already current |
 | `--install-dir` | running executable | Install to this directory instead of self-replace |
 | `--check` | `false` | Report if a newer stable release exists (exit 1 if outdated) |
 

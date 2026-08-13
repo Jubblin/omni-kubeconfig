@@ -108,6 +108,33 @@ func TestFetchLatestStable(t *testing.T) {
 	}
 }
 
+func TestCheckForceCheckComparesSnapshotToStable(t *testing.T) {
+	t.Parallel()
+
+	apiCalls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasSuffix(r.URL.Path, "/releases/latest") {
+			http.NotFound(w, r)
+			return
+		}
+		apiCalls++
+		_ = json.NewEncoder(w).Encode(githubRelease{TagName: "v0.4.0", Prerelease: false})
+	}))
+	defer srv.Close()
+
+	cfg := Config{APIBaseURL: srv.URL, Repo: "Jubblin/omni-kubeconfig", CacheDir: t.TempDir()}
+	res, err := Check(context.Background(), cfg, "0.3.5-snapshot.1", CheckOptions{ForceCheck: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if apiCalls != 1 {
+		t.Fatalf("apiCalls = %d want 1", apiCalls)
+	}
+	if !res.Newer || res.Latest.Version != "0.4.0" {
+		t.Fatalf("got %+v, want newer than snapshot with latest 0.4.0", res)
+	}
+}
+
 func TestCheckUsesCache(t *testing.T) {
 	t.Parallel()
 
