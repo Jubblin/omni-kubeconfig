@@ -218,6 +218,7 @@ func newSyncCmd(clientOpts clientOptsFunc, defaultOutput string) *cobra.Command 
 		dryRun           bool
 		printExport      bool
 		mergeExisting    bool
+		prune            bool
 	)
 
 	cmd := &cobra.Command{
@@ -228,6 +229,8 @@ admin kubeconfig, and merges them into a single file.
 
 By default, an existing output file is loaded and new downloads are merged into it (incremental
 update). Use --merge-existing=false to replace the file with only the clusters synced this run.
+By default, Omni cluster/context/user entries that no longer exist in Omni are pruned (keeps
+non-Omni contexts such as minikube). Use --prune=false to keep stale Omni entries.
 
 On name conflicts, incoming cluster/context/user entries overwrite existing ones by default.
 Use --rename-on-conflict to keep both (incoming renamed to name-1, name-2, …).
@@ -243,6 +246,7 @@ Flags:
   -o, --output string         Path for the merged kubeconfig (default: ~/.kube/config)
   -c, --cluster strings       Sync only these cluster names (repeatable; default: all clusters)
       --merge-existing        Load existing output and merge new downloads (default: true)
+      --prune                 Remove Omni entries for clusters destroyed since the last sync (default: true)
       --rename-on-conflict    Rename conflicting entries instead of overwriting
       --activate-context      Set current-context to the last merged cluster; empty current-context still activates (default: false)
       --grant-type string     OIDC grant type in downloaded kubeconfigs (auto, authcode, authcode-keyboard); omit for kubelogin defaults (omnictl-compatible)
@@ -255,6 +259,7 @@ Global flags: --omniconfig, --context, --insecure-skip-tls-verify, --siderov1-ke
   omni-kubeconfig sync -o ~/.kube/omni-prod -c prod -c staging
   omni-kubeconfig sync --rename-on-conflict
   omni-kubeconfig sync --activate-context
+  omni-kubeconfig sync --prune=false
   omni-kubeconfig sync --merge-existing=false`,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			resolvedOutput, err := resolveOutputPath(output)
@@ -277,6 +282,7 @@ Global flags: --omniconfig, --context, --insecure-skip-tls-verify, --siderov1-ke
 				DryRun:           dryRun,
 				PrintExport:      printKubeconfigExport,
 				MergeExisting:    mergeExisting,
+				Prune:            prune,
 			})
 		},
 	}
@@ -287,6 +293,8 @@ Global flags: --omniconfig, --context, --insecure-skip-tls-verify, --siderov1-ke
 		"only sync these Omni cluster names (repeat flag for multiple; default: all)")
 	cmd.Flags().BoolVar(&mergeExisting, "merge-existing", true,
 		"load existing output file and merge new downloads; false replaces file with clusters synced this run")
+	cmd.Flags().BoolVar(&prune, "prune", true,
+		"remove Omni cluster/context/user entries whose clusters no longer exist in Omni; false keeps stale Omni entries")
 	cmd.Flags().BoolVar(&renameOnConflict, "rename-on-conflict", false,
 		"on merge conflict, rename incoming cluster/context/user instead of overwriting")
 	cmd.Flags().BoolVar(&activateContext, "activate-context", false,

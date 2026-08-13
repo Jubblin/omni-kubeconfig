@@ -31,6 +31,7 @@ type SyncOptions struct {
 	DryRun           bool
 	PrintExport      bool
 	MergeExisting    bool // when true, load existing output and merge; when false, replace with this run only
+	Prune            bool // when true, drop Omni entries whose clusters no longer exist
 }
 
 // Sync downloads kubeconfigs for all (or filtered) clusters and merges them.
@@ -41,23 +42,28 @@ func Sync(opts SyncOptions) error {
 }
 
 func syncClusters(ctx context.Context, c *client.Client, opts SyncOptions) error {
-	names, err := listClusterNames(ctx, c, opts.Clusters)
+	liveNames, err := listAllClusterNames(ctx, c)
 	if err != nil {
 		return err
 	}
 
-	if len(names) == 0 {
-		fmt.Fprintln(os.Stderr, "no clusters found")
-		return nil
+	names, err := filterClusterIDs(liveNames, opts.Clusters)
+	if err != nil {
+		return err
 	}
 
 	slices.Sort(names)
 
 	if opts.DryRun {
-		return printDryRunClusters(names)
+		return printSyncDryRun(opts, names, liveNames)
 	}
 
-	return syncClustersToFile(ctx, c, opts, names)
+	if len(names) == 0 && !opts.Prune {
+		fmt.Fprintln(os.Stderr, "no clusters found")
+		return nil
+	}
+
+	return syncClustersToFile(ctx, c, opts, names, liveNames)
 }
 
 func printDryRunClusters(names []string) error {
@@ -68,7 +74,27 @@ func printDryRunClusters(names []string) error {
 	return nil
 }
 
-func syncClustersToFile(ctx context.Context, c *client.Client, opts SyncOptions, names []string) error {
+func printSyncDryRun(opts SyncOptions, names, liveNames []string) error {
+	if err := printDryRunClusters(names); err != nil {
+		return err
+	}
+	if !opts.Prune {
+		return nil
+	}
+
+	cfg, err := mergerForSync(opts.OutputPath, true)
+	if err != nil {
+		return err
+	}
+	pruned := pruneDestroyedOmniEntries(cfg, filterSetFromNames(liveNames))
+	fmt.Fprintf(os.Stderr, "would prune %d destroyed Omni cluster(s):\n", len(pruned))
+	for _, name := range pruned {
+		fmt.Fprintf(os.Stderr, "  %s\n", name)
+	}
+	return nil
+}
+
+func syncClustersToFile(ctx context.Context, c *client.Client, opts SyncOptions, names, liveNames []string) error {
 	outputPath, err := prepareOutputPath(opts.OutputPath)
 	if err != nil {
 		return err
@@ -79,12 +105,43 @@ func syncClustersToFile(ctx context.Context, c *client.Client, opts SyncOptions,
 		return err
 	}
 
-	merged, err := fetchAndMergeKubeconfigs(ctx, c, names, opts, merger)
+	var pruned []string
+	if opts.Prune {
+		pruned = pruneDestroyedOmniEntries(merger, filterSetFromNames(liveNames))
+		logPrunedClusters(pruned)
+	}
+
+	merged, err := mergeDownloadedKubeconfigs(ctx, c, names, opts, merger)
 	if err != nil {
-		return err
+		if len(pruned) == 0 {
+			return err
+		}
+		fmt.Fprintf(os.Stderr, "[WARN] %v\n", err)
+		merged = 0
+	}
+
+	if merged == 0 && len(pruned) == 0 {
+		if len(names) == 0 {
+			fmt.Fprintln(os.Stderr, "no clusters found")
+			return nil
+		}
+		return fmt.Errorf("no kubeconfigs downloaded")
 	}
 
 	return writeMergedKubeconfig(outputPath, merger, merged, opts.PrintExport)
+}
+
+func mergeDownloadedKubeconfigs(
+	ctx context.Context,
+	c *client.Client,
+	names []string,
+	opts SyncOptions,
+	merger *clientcmdapi.Config,
+) (int, error) {
+	if len(names) == 0 {
+		return 0, nil
+	}
+	return fetchAndMergeKubeconfigs(ctx, c, names, opts, merger)
 }
 
 func prepareOutputPath(path string) (string, error) {
@@ -166,16 +223,36 @@ func writeMergedKubeconfig(outputPath string, merger *clientcmdapi.Config, merge
 }
 
 func listClusterNames(ctx context.Context, c *client.Client, filter []string) ([]string, error) {
+	live, err := listAllClusterNames(ctx, c)
+	if err != nil {
+		return nil, err
+	}
+	return filterClusterIDs(live, filter)
+}
+
+func listAllClusterNames(ctx context.Context, c *client.Client) ([]string, error) {
 	list, err := safe.StateListAll[*omnires.Cluster](ctx, c.Omni().State())
 	if err != nil {
 		return nil, fmt.Errorf("list clusters: %w", err)
 	}
+	return matchingClusterNames(list, nil), nil
+}
 
-	names := matchingClusterNames(list, filterSetFromNames(filter))
+func filterClusterIDs(live, filter []string) ([]string, error) {
+	if len(filter) == 0 {
+		return append([]string(nil), live...), nil
+	}
+
+	filterSet := filterSetFromNames(filter)
+	var names []string
+	for _, id := range live {
+		if clusterMatchesFilter(id, filterSet) {
+			names = append(names, id)
+		}
+	}
 	if err := validateFilterClusters(filter, names); err != nil {
 		return nil, err
 	}
-
 	return names, nil
 }
 
