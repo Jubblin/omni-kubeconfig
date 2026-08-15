@@ -7,6 +7,8 @@
 
 Download admin kubeconfigs for every cluster on a [Sidero Omni](https://docs.siderolabs.com/omni) server and merge them into a single file for `kubectl`.
 
+Referenced in [Awesom Talos](https://github.com/siderolabs/awesome-talos)
+
 ## Features
 
 - **`auth`** — SideroV1 PGP + browser login (same flow as `omnictl`)
