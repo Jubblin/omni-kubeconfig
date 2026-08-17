@@ -1,6 +1,6 @@
 module github.com/Jubblin/omni-kubeconfig
 
-go 1.26.5
+go 1.26.6
 
 require (
 	github.com/blang/semver/v4 v4.0.0
@@ -8,7 +8,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/siderolabs/go-api-signature v0.3.13
 	github.com/siderolabs/go-kubeconfig v0.1.2
-	github.com/siderolabs/omni/client v1.10.1
+	github.com/siderolabs/omni/client v1.10.3
 	github.com/spf13/cobra v1.10.2
 	go.uber.org/zap v1.28.0
 	golang.org/x/term v0.45.0
