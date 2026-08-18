@@ -18,7 +18,7 @@ Open the repository in VS Code / Cursor and choose **Reopen in Container**. The 
 
 Requirements:
 
-- Go 1.25+ (see `go.mod`)
+- Go 1.26+ (see `go.mod`)
 - Make
 - **Lint:** [golangci-lint](https://golangci-lint.run/) v2.12.2 (match CI) — `make lint`; config in [`.golangci.yml`](.golangci.yml). This replaces third-party Go Report Card as the code quality gate.
 - Optional: [pre-commit](https://pre-commit.com/) for git hook checks

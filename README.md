@@ -7,8 +7,6 @@
 
 Download admin kubeconfigs for every cluster on a [Sidero Omni](https://docs.siderolabs.com/omni) server and merge them into a single file for `kubectl`.
 
-Referenced in [Awesom Talos](https://github.com/siderolabs/awesome-talos)
-
 ## Features
 
 - **`auth`** — SideroV1 PGP + browser login (same flow as `omnictl`)
@@ -104,17 +102,17 @@ The image contains only the `omni-kubeconfig` binary (distroless, no shell). Mou
 
 | Tag | When |
 |-----|------|
-| `v0.4.1-snapshot` | Floating latest from `main` for the current release line (after Trivy) |
-| `v0.4.1-snapshot.N` | Immutable numbered snapshot for a specific `main` build (after Trivy) |
+| `v0.4.2-snapshot` | Floating latest from `main` for the current release line (after Trivy) |
+| `v0.4.2-snapshot.N` | Immutable numbered snapshot for a specific `main` build (after Trivy) |
 | `latest` | Most recent release (after Trivy) |
 | `0.1.2` | Exact semver (no `v` prefix), after Trivy |
 | `0.1` | Major.minor alias on release |
 | `sha-<commit>` | Immutable digest pointer (pushed before scan; safe if scan fails) |
 
 ```bash
-# After merging to main (release line v0.4.1)
-docker pull ghcr.io/jubblin/omni-kubeconfig:v0.4.1-snapshot
-docker pull ghcr.io/jubblin/omni-kubeconfig:v0.4.1-snapshot.3
+# After merging to main (release line v0.4.2)
+docker pull ghcr.io/jubblin/omni-kubeconfig:v0.4.2-snapshot
+docker pull ghcr.io/jubblin/omni-kubeconfig:v0.4.2-snapshot.3
 
 # After tagging v0.1.2
 docker pull ghcr.io/jubblin/omni-kubeconfig:0.1.2
@@ -228,7 +226,7 @@ make docker-run IMAGE=myregistry/omni-kubeconfig IMAGE_TAG=dev ARGS="sync"
 
 ### Dev Container
 
-Open in VS Code / Cursor → **Reopen in Container**. Includes Go 1.25, golangci-lint, and GitHub CLI. Your host `~/.talos` directory is mounted for Omni authentication.
+Open in VS Code / Cursor → **Reopen in Container**. Includes Go 1.26, golangci-lint, and GitHub CLI. Your host `~/.talos` directory is mounted for Omni authentication.
 
 ### Local
 
@@ -261,8 +259,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ```bash
 # Ensure CHANGELOG.md is updated, then:
-git tag v0.4.1
-git push origin v0.4.1
+git tag v0.4.2
+git push origin v0.4.2
 ```
 
 GoReleaser publishes bare binaries (naming matches `omnictl-*`) for darwin/linux amd64+arm64 and windows amd64 only, and builds/pushes the multi-arch container image via `dockers_v2`. See [.goreleaser.yaml](.goreleaser.yaml).
@@ -419,7 +417,7 @@ Args: `<source> <destination>` (required; names must differ).
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--version` | latest stable (if newer) | Install a specific release tag (e.g. `v0.4.1`); latest path skips when already current |
+| `--version` | latest stable (if newer) | Install a specific release tag (e.g. `v0.4.2`); latest path skips when already current |
 | `--install-dir` | running executable | Install to this directory instead of self-replace |
 | `--check` | `false` | Report if a newer stable release exists (exit 1 if outdated) |
 
@@ -527,45 +525,6 @@ make docker-build && make trivy-image   # dist/sbom-image.cyclonedx.json
 
 See [SECURITY.md](SECURITY.md). Do not commit kubeconfigs, omniconfig, or PGP keys.
 
-## Fix: CI build failure (`go-api-signature` / gopenpgp)
+## See also
 
-Tracking issue: [#37](https://github.com/Jubblin/omni-kubeconfig/issues/37)
-
-### Symptom
-
-After Renovate merged `github.com/siderolabs/go-api-signature` **v0.3.13** ([#26](https://github.com/Jubblin/omni-kubeconfig/pull/26)), GitHub Actions on `main` failed across **Test**, **Lint**, all **Build** matrix jobs, and **Docker Build image** with:
-
-```text
-omni/client@v1.8.1/pkg/omni/resources/auth/public_key.go:66:21:
-cannot use key (*gopenpgp/v2/crypto.Key) as *gopenpgp/v3/crypto.Key in pgp.NewKey
-```
-
-### Root cause
-
-| Dependency | gopenpgp API |
-|------------|----------------|
-| `omni/client` v1.8.1 | **v2** (`public_key.go`) |
-| `go-api-signature` v0.3.13 | **v3** (`pgp.NewKey`) |
-
-The two versions are incompatible until `omni/client` aligns with gopenpgp v3 (or `go-api-signature` reverts to v2).
-
-### Fix applied
-
-1. **Pin** `github.com/siderolabs/go-api-signature` to **v0.3.12** in `go.mod` (v2-compatible).
-2. **Block Renovate** from re-bumping to v0.3.13+ via `renovate.json` `packageRules` until upstream is compatible.
-
-Verify locally:
-
-```bash
-go build ./...
-make test
-```
-
-### Remove when
-
-Drop the pin and Renovate rule when either:
-
-- `github.com/siderolabs/omni/client` ships a release compatible with `go-api-signature` v0.3.13+, or
-- `go-api-signature` documents a supported combination with `omni/client` v1.8.x.
-
-After upgrading, run `go build ./...`, `make test`, and confirm GitHub Actions are green on `main` before closing the tracking issue.
+Listed in [Awesome Talos](https://github.com/siderolabs/awesome-talos) under Management.
