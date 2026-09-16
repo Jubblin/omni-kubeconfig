@@ -34,9 +34,9 @@ Download admin kubeconfigs for every cluster on a [Sidero Omni](https://docs.sid
 | v0.3.0 – v0.3.6   | v1.9.3            | 2                  | v1.5.0 – v1.10.6         |
 | v0.4.0 – v0.4.1   | v1.10.0           | 2                  | v1.5.0 – v1.10.6         |
 | v0.4.2 – v0.4.3   | v1.10.3 – v1.12.0 | 2 *(bug: broken against Omni servers ≥ v1.11.0, see below)* | v1.5.0 – v1.10.6 |
-| v0.4.4+           | v1.12.0+          | 3                  | v1.11.0+                 |
+| v0.5.0+           | v1.12.0+          | 3                  | v1.11.0+                 |
 
-Omni's own API version has moved: `1` through v1.4.x, `2` from v1.5.0, `3` from v1.11.0. The **v0.4.2–v0.4.3** releases bumped the `omni/client` Go module (which only affects the SDK code, not the declared API version) without bumping the hardcoded API-version constant in `cmd/omni-kubeconfig/main.go` — so those builds report API `2` and fail against Omni v1.11.0+ servers with `client API version mismatch: backend 3, client 2`. Fixed in v0.4.4+; upgrade if you hit that error.
+Omni's own API version has moved: `1` through v1.4.x, `2` from v1.5.0, `3` from v1.11.0. The **v0.4.2–v0.4.3** releases bumped the `omni/client` Go module (which only affects the SDK code, not the declared API version) without bumping the hardcoded API-version constant in `cmd/omni-kubeconfig/main.go` — so those builds report API `2` and fail against Omni v1.11.0+ servers with `client API version mismatch: backend 3, client 2`. Fixed in v0.5.0+ (a breaking change: it drops support for Omni servers older than v1.11.0); upgrade if you hit that error.
 
 Talos itself isn't a runtime dependency here (`omni-kubeconfig` only talks to the Omni API, never Talos directly), so there's no separate Talos compatibility constraint.
 

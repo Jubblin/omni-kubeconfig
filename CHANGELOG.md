@@ -7,9 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
+## [0.5.0] - 2026-09-16
 
-- Omni API version bumped to 3 (matches server v1.12.0's `internal/version.API`); the 0.4.3 release left it at 2, causing `client API version mismatch: backend 3, client 2` against current Omni servers
+### Changed
+
+- **Breaking:** Omni API version bumped to 3, requiring an Omni server ≥ v1.11.0; the 0.4.3 release declared API 2 and caused `client API version mismatch: backend 3, client 2` against current Omni servers. See the [Compatibility](README.md#compatibility) table.
 
 ## [0.4.3] - 2026-09-14
 
@@ -131,7 +133,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Omni API v2 compatibility
 - Makefile build with semver injection from git tags
 
-[Unreleased]: https://github.com/Jubblin/omni-kubeconfig/compare/v0.4.3...HEAD
+[Unreleased]: https://github.com/Jubblin/omni-kubeconfig/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/Jubblin/omni-kubeconfig/compare/v0.4.3...v0.5.0
 [0.4.3]: https://github.com/Jubblin/omni-kubeconfig/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/Jubblin/omni-kubeconfig/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/Jubblin/omni-kubeconfig/compare/v0.4.0...v0.4.1
