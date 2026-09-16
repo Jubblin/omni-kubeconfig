@@ -16,7 +16,7 @@ import (
 	appversion "github.com/Jubblin/omni-kubeconfig/internal/version"
 )
 
-const omniAPIVersion = 2
+const omniAPIVersion = 3
 
 func init() {
 	if err := appversion.Validate(); err != nil {

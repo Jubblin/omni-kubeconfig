@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Omni API version bumped to 3 (matches server v1.12.0's `internal/version.API`); the 0.4.3 release left it at 2, causing `client API version mismatch: backend 3, client 2` against current Omni servers
+
 ## [0.4.3] - 2026-09-14
 
 ### Changed
