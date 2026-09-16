@@ -21,7 +21,24 @@ Download admin kubeconfigs for every cluster on a [Sidero Omni](https://docs.sid
 - Name conflicts overwrite by default; `--rename-on-conflict` keeps both (incoming → `name-1`)
 - Preserves existing `current-context` by default (cold starts / empty `current-context` still get one); `--activate-context` sets it to the last merged cluster
 - Backups existing output as `*.bak.<timestamp>` before overwrite
-- Omni API v2 compatible
+- Omni API v3 compatible
+
+## Compatibility
+
+`omni-kubeconfig` declares an Omni API version at build time and refuses to talk to a server reporting a different one (`omni-kubeconfig auth`/`sync`/`kubeconfig` fail fast with `client API version mismatch`). Match your release to your Omni server:
+
+| omni-kubeconfig | Omni client dep | Omni API version | Compatible Omni server |
+| ---------------- | ---------------- | ----------------- | ----------------------- |
+| v0.1.0 – v0.1.2   | v1.8.2            | 2                  | v1.5.0 – v1.10.6         |
+| v0.2.0            | v1.9.1            | 2                  | v1.5.0 – v1.10.6         |
+| v0.3.0 – v0.3.6   | v1.9.3            | 2                  | v1.5.0 – v1.10.6         |
+| v0.4.0 – v0.4.1   | v1.10.0           | 2                  | v1.5.0 – v1.10.6         |
+| v0.4.2 – v0.4.3   | v1.10.3 – v1.12.0 | 2 *(bug: broken against Omni servers ≥ v1.11.0, see below)* | v1.5.0 – v1.10.6 |
+| v0.4.4+           | v1.12.0+          | 3                  | v1.11.0+                 |
+
+Omni's own API version has moved: `1` through v1.4.x, `2` from v1.5.0, `3` from v1.11.0. The **v0.4.2–v0.4.3** releases bumped the `omni/client` Go module (which only affects the SDK code, not the declared API version) without bumping the hardcoded API-version constant in `cmd/omni-kubeconfig/main.go` — so those builds report API `2` and fail against Omni v1.11.0+ servers with `client API version mismatch: backend 3, client 2`. Fixed in v0.4.4+; upgrade if you hit that error.
+
+Talos itself isn't a runtime dependency here (`omni-kubeconfig` only talks to the Omni API, never Talos directly), so there's no separate Talos compatibility constraint.
 
 ## Quick start
 
