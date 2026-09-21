@@ -349,6 +349,8 @@ github.com/siderolabs/omni/client v1.11.0 h1:bwPxPjBApGK4Gji2zEvhR2nQBZX1fSwNfEn
 github.com/siderolabs/omni/client v1.11.0/go.mod h1:8p3U9d6jhD6YibyPPUn/8rnVH5+Zo6k28O3w2a2Q1TI=
 github.com/siderolabs/omni/client v1.12.0 h1:j9meDhPjNyUWmcHC8c5oT2IMuJOq6UcI5uMEXb1X/FE=
 github.com/siderolabs/omni/client v1.12.0/go.mod h1:XEEXHTtGXZ+T4ze/cBMY/x1wt9e2txtD/QMqMhVrxJ8=
+github.com/siderolabs/omni/client v1.12.1 h1:9fDdPgfiWTZkKFCGbCw02pcXQUvQu3DsBvzP0BKf2es=
+github.com/siderolabs/omni/client v1.12.1/go.mod h1:XEEXHTtGXZ+T4ze/cBMY/x1wt9e2txtD/QMqMhVrxJ8=
 github.com/siderolabs/proto-codec v0.1.4 h1:AcrLot/251qAa35GYhSqDeEKF3bygOlNaYJSrl7MPNQ=
 github.com/siderolabs/proto-codec v0.1.4/go.mod h1:frX2VEBSrZwzGxEdT+AMSjiWr6ySY/rCSXJxD0z9kxQ=
 github.com/siderolabs/protoenc v0.2.4 h1:D3Fpn2nQSQOhl8ZlAxijZAf7K6F8CM1uZq0afIGsr8Q=
