@@ -118,7 +118,7 @@ jobs:
       # Real release (not --snapshot) so dockers_v2 can push multi-arch manifests.
       # dockers_v2 pushes only sha-<commit>; mutable tags are promoted after Trivy.
       - name: GoReleaser
-        uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7
+        uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7
         with:
           version: "~> v2"
           args: release --clean
@@ -135,7 +135,7 @@ jobs:
           echo "Resolved ${{ env.IMAGE }}:sha-${GITHUB_SHA}@${DIGEST}"
 
       - name: Upload module SBOM for attest
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: module-sbom
           path: dist/sbom.cyclonedx.json
@@ -223,7 +223,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Download module SBOM
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: module-sbom
           path: dist
@@ -255,7 +255,7 @@ jobs:
             "${{ needs.meta.outputs.tag }}"
 
       - name: Upload signed container SBOM artifacts
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: sbom-image-signed
           path: |
